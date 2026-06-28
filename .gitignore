@@ -1,36 +1,20 @@
-# env files — never commit real values
-/.env
-backend/.env
-frontend/.env
-deploy/scripts/.env
-deploy/scripts/.env.*
-!deploy/scripts/.env.example
+# env files — never commit real values. NOTE: every VITE_* value is public
+# (shipped to the browser), but local overrides still don't belong in git.
+.env
+.env.*
+!.env.example
 
-# Claude Code local settings (may hold local secrets)
+# Claude Code local settings
 .claude/settings.local.json
-.claude/hooks/__pycache__/
 
-# Go
-backend/vendor/
+# Node / build output
+/node_modules/
+/dist/
+/dist-widget/
 
-# Node
-frontend/node_modules/
-frontend/dist/
-frontend/dist-widget/
-
-# Terraform — never commit state, real tfvars, or backend config
-**/.terraform/
-*.tfstate
-*.tfstate.*
-crash.log
-crash.*.log
-*.tfvars
-!*.tfvars.example
-backend.hcl
-override.tf
-override.tf.json
-*_override.tf
-*_override.tf.json
+# Vite / TypeScript
+*.tsbuildinfo
+.vite/
 
 # OS
 .DS_Store

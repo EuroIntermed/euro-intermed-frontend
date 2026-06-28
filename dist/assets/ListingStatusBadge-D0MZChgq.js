@@ -1,1 +1,0 @@
-import{F as e,Z as t}from"./api-C1_3VB-7.js";import{t as n}from"./badge-BxTAHQpt.js";var r=t(),i={active:`default`,reserved:`secondary`,sold:`secondary`,expired:`destructive`,withdrawn:`outline`};function a({status:t}){let{listingStatusLabel:a}=e();return(0,r.jsx)(n,{variant:i[t]??`secondary`,children:a(t)})}export{a as t};
