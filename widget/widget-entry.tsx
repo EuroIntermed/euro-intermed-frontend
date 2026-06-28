@@ -1,5 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import { WidgetApp } from './WidgetApp'
+import { Launcher } from './Launcher'
+import { type ThemePref } from './theme'
 import type { ChatIntent, ChatVertical } from '@/lib/api'
 import { detectLang, makeT, type Lang } from '@/lib/i18n'
 
@@ -16,6 +18,11 @@ interface WidgetConfig {
    * preference when omitted.
    */
   lang?: Lang
+  /**
+   * Color theme: 'light' | 'dark' | 'auto' (default). 'auto' follows the host's
+   * `.dark` class and `prefers-color-scheme`.
+   */
+  theme?: ThemePref
   /**
    * Public privacy-policy URL linked from the GDPR consent notice. Host sites set
    * it here per environment; no domain is hardcoded. Falls back to VITE_PRIVACY_URL.
@@ -68,22 +75,15 @@ function init(config: WidgetConfig = {}) {
           vertical={config.vertical}
           intent={config.intent}
           lang={lang}
+          theme={config.theme}
           onClose={() => render(false)}
         />
       ) : (
-        <button
+        <Launcher
           onClick={() => render(true)}
-          style={{
-            width: '56px', height: '56px', borderRadius: '50%',
-            background: '#111827', color: '#fff', border: 'none',
-            cursor: 'pointer', fontSize: '24px', boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-          title={t('chat.widgetLauncher')}
-          aria-label={t('chat.widgetLauncher')}
-        >
-          💬
-        </button>
+          label={t('chat.widgetLauncher')}
+          themePref={config.theme}
+        />
       ),
     )
   }

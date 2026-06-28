@@ -2,15 +2,36 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   sendMessage,
   subscribeToConversation,
+  uploadConversationPhoto,
   type ChatIntent,
   type ChatVertical,
   type ExtractedFields,
   type StreamMessage,
 } from '@/lib/api'
 
+/** Per-image upload state inside an outgoing image message. */
+export type ChatImageStatus = 'uploading' | 'done' | 'error'
+
+export interface ChatImage {
+  id: string
+  /** Object URL for the local preview (revoked on unmount). */
+  previewUrl: string
+  status: ChatImageStatus
+}
+
 export interface ChatMessage {
+  /** Stable id for keying + targeted updates (e.g. per-image upload status). */
+  id: string
   role: 'user' | 'assistant'
   content: string
+  /** Present on user image messages — a group of attached photos. */
+  images?: ChatImage[]
+}
+
+let idCounter = 0
+function nextId(prefix: string): string {
+  idCounter += 1
+  return `${prefix}-${idCounter}-${Date.now()}`
 }
 
 interface UseChatOptions {
@@ -38,6 +59,13 @@ interface UseChatResult {
   /** Latest extracted fields (from the most recent agent reply). */
   extracted: ExtractedFields
   send: (text: string) => void
+  /**
+   * Attach a group of images as a single user message and upload each to the
+   * conversation. No-op until a conversation exists (see {@link canAttach}).
+   */
+  sendImages: (files: File[]) => void
+  /** True once a conversation id exists, so photos can be uploaded/attached. */
+  canAttach: boolean
   /** The active conversation id once the first message has been sent (else null). */
   conversationId: string | null
   /**
@@ -89,7 +117,7 @@ export function useChat({
   intent = 'buy',
 }: UseChatOptions): UseChatResult {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { role: 'assistant', content: greeting },
+    { id: nextId('a'), role: 'assistant', content: greeting },
   ])
   const [typing, setTyping] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedFields>({})
@@ -114,6 +142,11 @@ export function useChat({
   const convIdRef = useRef<string | null>(sessionStorage.getItem(convStorageKey))
   const tokenRef = useRef<string | null>(sessionStorage.getItem(tokenStorageKey))
   const unsubscribeRef = useRef<(() => void) | null>(null)
+  // Mirror of messages for unmount cleanup (revoke image preview object URLs).
+  const messagesRef = useRef<ChatMessage[]>(messages)
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
 
   // Per-turn guard: incremented on each send, so the SSE `message` handler
   // renders at most one reply for the in-flight turn (a replayed buffer event
@@ -133,7 +166,10 @@ export function useChat({
 
   const appendAssistant = useCallback(
     (msg: StreamMessage) => {
-      setMessages((prev) => [...prev, { role: 'assistant', content: msg.reply }])
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId('a'), role: 'assistant', content: msg.reply },
+      ])
       setExtracted(msg.extracted ?? {})
       // React to a mid-conversation re-route: the agent may have switched the
       // flow (e.g. buyer→seller), which must reveal/hide seller-only UI.
@@ -180,7 +216,7 @@ export function useChat({
             unsubscribeRef.current = null
             setMessages((prev) => [
               ...prev,
-              { role: 'assistant', content: errorMessage },
+              { id: nextId('a'), role: 'assistant', content: errorMessage },
             ])
           },
         },
@@ -199,7 +235,10 @@ export function useChat({
       const text = raw.trim()
       if (!text || typing) return
 
-      setMessages((prev) => [...prev, { role: 'user', content: text }])
+      setMessages((prev) => [
+        ...prev,
+        { id: nextId('u'), role: 'user', content: text },
+      ])
       setTyping(true)
 
       // Mark this turn as awaiting an SSE reply and (re)arm the stall timer.
@@ -213,7 +252,11 @@ export function useChat({
         setTyping(false)
         setMessages((prev) => [
           ...prev,
-          { role: 'assistant', content: timeoutMessage ?? errorMessage },
+          {
+            id: nextId('a'),
+            role: 'assistant',
+            content: timeoutMessage ?? errorMessage,
+          },
         ])
       }, STREAM_TIMEOUT_MS)
 
@@ -251,7 +294,7 @@ export function useChat({
             setTyping(false)
             setMessages((prev) => [
               ...prev,
-              { role: 'assistant', content: errorMessage },
+              { id: nextId('a'), role: 'assistant', content: errorMessage },
             ])
           }
         }
@@ -270,12 +313,79 @@ export function useChat({
     ],
   )
 
-  // Close the EventSource and clear timers on unmount.
+  // Flip a single image's upload status inside its message.
+  const setImageStatus = useCallback(
+    (messageId: string, imageId: string, status: ChatImageStatus) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId && m.images
+            ? {
+                ...m,
+                images: m.images.map((im) =>
+                  im.id === imageId ? { ...im, status } : im,
+                ),
+              }
+            : m,
+        ),
+      )
+    },
+    [],
+  )
+
+  // Attach picked images as ONE grouped user bubble, then upload each to the
+  // conversation's photo endpoint. The bubble renders immediately (optimistic);
+  // each tile shows its own uploading/done/error state. Photos go to a dedicated
+  // endpoint (not the agent), so this does not post a chat turn or await SSE.
+  const sendImages = useCallback(
+    (files: File[]) => {
+      const convId = convIdRef.current
+      if (!convId) return
+      const pairs = files
+        .filter((f) => f.type.startsWith('image/'))
+        .map((file) => ({
+          file,
+          image: {
+            id: nextId('img'),
+            previewUrl: URL.createObjectURL(file),
+            status: 'uploading' as ChatImageStatus,
+          },
+        }))
+      if (pairs.length === 0) return
+
+      const messageId = nextId('u')
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          role: 'user',
+          content: '',
+          images: pairs.map((p) => p.image),
+        },
+      ])
+
+      pairs.forEach(({ file, image }) => {
+        void (async () => {
+          try {
+            await uploadConversationPhoto(convId, file, tokenRef.current)
+            setImageStatus(messageId, image.id, 'done')
+          } catch {
+            setImageStatus(messageId, image.id, 'error')
+          }
+        })()
+      })
+    },
+    [setImageStatus],
+  )
+
+  // Close the EventSource, clear timers, and revoke image preview URLs on unmount.
   useEffect(() => {
     return () => {
       unsubscribeRef.current?.()
       unsubscribeRef.current = null
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current)
+      messagesRef.current.forEach((m) =>
+        m.images?.forEach((im) => URL.revokeObjectURL(im.previewUrl)),
+      )
     }
   }, [])
 
@@ -284,6 +394,8 @@ export function useChat({
     typing,
     extracted,
     send,
+    sendImages,
+    canAttach: conversationId !== null,
     conversationId,
     conversationToken,
     vertical: liveVertical,
