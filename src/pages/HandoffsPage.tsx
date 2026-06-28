@@ -24,6 +24,7 @@ export function HandoffsPage() {
     <PageShell
       breadcrumbs={[{ label: t('nav.handoffs') }]}
       title={t('nav.handoffs')}
+      description={t('handoffs.subtitle')}
     >
       {isLoading && (
         <div className="rounded-lg border p-4 flex flex-col gap-3">

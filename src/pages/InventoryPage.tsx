@@ -122,6 +122,7 @@ export function InventoryPage() {
     <PageShell
       breadcrumbs={[{ label: t('nav.inventory') }]}
       title={t('inventory.title')}
+      description={t('inventory.subtitle')}
     >
       <div className="flex flex-col gap-6">
         <InventoryFilterBar value={filters} onChange={onFilterChange} />

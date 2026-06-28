@@ -577,6 +577,25 @@ export async function getLeadDetail(id: string): Promise<AuthedLeadDetail> {
   return authedFetch<AuthedLeadDetail>(`/leads/${encodeURIComponent(id)}`)
 }
 
+/** One audit-log row for a lead (openapi ActivityLog). */
+export interface ActivityEntry {
+  actor_type: string
+  actor_id?: string
+  action: string
+  entity_type?: string
+  entity_id?: string
+  meta?: Record<string, unknown>
+  at: string
+}
+
+/** The lead's audit-log timeline, newest first. */
+export async function getLeadActivity(id: string): Promise<ActivityEntry[]> {
+  const res = await authedFetch<{ data: ActivityEntry[] }>(
+    `/leads/${encodeURIComponent(id)}/activity`,
+  )
+  return res.data ?? []
+}
+
 // --- Offer tracking + assignment ------------------------------------------
 
 export interface OfferUpdate {
@@ -622,6 +641,22 @@ export interface PublicUser {
 
 export async function listUsers(): Promise<PublicUser[]> {
   return authedFetch<PublicUser[]>('/users')
+}
+
+/** Create-user payload (POST /api/users, admin only). */
+export interface UserCreate {
+  email: string
+  name: string
+  role: UserRole
+  password: string
+}
+
+/** Create a staff/admin user. Admin only; 409 on duplicate email. */
+export async function createUser(body: UserCreate): Promise<PublicUser> {
+  return authedFetch<PublicUser>('/users', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 // --- B2B directory (companies) --------------------------------------------

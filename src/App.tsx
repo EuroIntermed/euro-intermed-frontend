@@ -40,6 +40,9 @@ const TasksPage = lazy(() =>
 const WidgetPage = lazy(() =>
   import('@/pages/WidgetPage').then((m) => ({ default: m.WidgetPage })),
 )
+const UsersPage = lazy(() =>
+  import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })),
+)
 const LoginPage = lazy(() =>
   import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
@@ -88,6 +91,7 @@ function AppRoutes() {
           />
           <Route path="/dashboard/handoffs" element={<HandoffsPage />} />
           <Route path="/dashboard/tasks" element={<TasksPage />} />
+          <Route path="/dashboard/users" element={<UsersPage />} />
           <Route path="/dashboard/widget" element={<WidgetPage />} />
           {/* Back-compat: the widget hub used to live at /test-widget. */}
           <Route

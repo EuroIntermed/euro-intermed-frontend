@@ -92,7 +92,11 @@ export function TasksPage() {
   const list = tasks ?? []
 
   return (
-    <PageShell breadcrumbs={[{ label: t('nav.tasks') }]} title={t('nav.tasks')}>
+    <PageShell
+      breadcrumbs={[{ label: t('nav.tasks') }]}
+      title={t('nav.tasks')}
+      description={t('tasks.subtitle')}
+    >
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center gap-3">
           <Select

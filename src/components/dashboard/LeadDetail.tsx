@@ -23,6 +23,7 @@ import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
 import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
 import { HandoffCallout } from '@/components/dashboard/HandoffCallout'
 import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
+import { LeadActivity } from '@/components/dashboard/LeadActivity'
 import {
   TranscriptThread,
   type RequestRef,
@@ -522,6 +523,7 @@ export function LeadDetail({ lead, users }: Props) {
           <OfferCard lead={lead} />
           <AssigneeCard lead={lead} users={users} />
           <FollowUpCard lead={lead} />
+          <LeadActivity leadId={lead.id} />
 
           {company && (
           <Card>

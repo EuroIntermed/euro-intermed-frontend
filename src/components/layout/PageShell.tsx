@@ -24,6 +24,8 @@ interface Props {
   /** Trail after the implicit Home root; the last item is the current page. */
   breadcrumbs: Crumb[]
   title: string
+  /** One-line description under the title — what the page is for. */
+  description?: string
   /** Badges shown next to the title (e.g. status / vertical). */
   titleBadges?: ReactNode
   /** Right-aligned header actions (e.g. the transcript trigger). */
@@ -41,6 +43,7 @@ interface Props {
 export function PageShell({
   breadcrumbs,
   title,
+  description,
   titleBadges,
   actions,
   children,
@@ -93,6 +96,9 @@ export function PageShell({
               </h1>
               {titleBadges}
             </div>
+            {description && (
+              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            )}
           </div>
           {actions && (
             <div className="flex shrink-0 flex-wrap items-center gap-2">

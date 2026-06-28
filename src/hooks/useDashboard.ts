@@ -3,6 +3,7 @@ import { useAuth } from '@/auth/useAuth'
 import {
   listLeads,
   getLeadDetail,
+  getLeadActivity,
   listUsers,
   listCompanies,
   getCompany,
@@ -34,6 +35,15 @@ export function useLeadDetail(id: string) {
   return useQuery({
     queryKey: ['lead', id],
     queryFn: () => getLeadDetail(id),
+    enabled: !!id,
+  })
+}
+
+/** The lead's audit-log timeline (newest first). */
+export function useLeadActivity(id: string) {
+  return useQuery({
+    queryKey: ['lead-activity', id],
+    queryFn: () => getLeadActivity(id),
     enabled: !!id,
   })
 }

@@ -144,6 +144,7 @@ export function PipelinePage() {
     <PageShell
       breadcrumbs={[{ label: t('nav.pipeline') }]}
       title={t('nav.pipeline')}
+      description={t('pipeline.subtitle')}
     >
       <div className="flex flex-col gap-6">
         <LeadFilterBar

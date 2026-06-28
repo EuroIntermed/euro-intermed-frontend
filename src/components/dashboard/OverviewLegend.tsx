@@ -1,3 +1,4 @@
+import { Fragment } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { useT } from '@/lib/i18n'
@@ -33,18 +34,20 @@ export function OverviewLegend() {
           <h3 className="mb-3 text-sm font-semibold">
             {t('overview.legendStatusesTitle')}
           </h3>
-          <ul className="flex flex-col gap-2">
+          {/* Two aligned columns: the status badge (column sized to the widest
+              badge) and its meaning, so every description starts at the same x. */}
+          <div className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2.5">
             {STATUSES.map((s) => (
-              <li key={s} className="flex items-start gap-2.5">
-                <span className="shrink-0">
+              <Fragment key={s}>
+                <div>
                   <StatusBadge status={s} />
-                </span>
+                </div>
                 <span className="text-xs text-muted-foreground">
                   {t(`overview.statusHelp.${s}` as TKey)}
                 </span>
-              </li>
+              </Fragment>
             ))}
-          </ul>
+          </div>
         </div>
         <div className="flex flex-col gap-4">
           <div>

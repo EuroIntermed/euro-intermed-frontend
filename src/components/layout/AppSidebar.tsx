@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  UserCog,
   Workflow,
 } from 'lucide-react'
 import {
@@ -16,6 +17,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -54,27 +56,40 @@ const SECTION_PREFIXES = [
   '/dashboard/companies',
   '/dashboard/handoffs',
   '/dashboard/tasks',
+  '/dashboard/users',
   '/dashboard/widget',
 ]
 
-const NAV_ITEMS: {
+type NavItem = {
   to: string
   labelKey: TKey
   icon: typeof LayoutDashboard
-}[] = [
+  /** When true the item is only shown to admins. */
+  adminOnly?: boolean
+}
+
+// Day-to-day operations.
+const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', labelKey: 'nav.overview', icon: LayoutDashboard },
   { to: '/dashboard/pipeline', labelKey: 'nav.pipeline', icon: Workflow },
   { to: '/dashboard/inventory', labelKey: 'nav.inventory', icon: Boxes },
   { to: '/dashboard/companies', labelKey: 'nav.companies', icon: Building2 },
   { to: '/dashboard/handoffs', labelKey: 'nav.handoffs', icon: Inbox },
   { to: '/dashboard/tasks', labelKey: 'nav.tasks', icon: ListTodo },
+]
+
+// Admin / configuration — separated from the daily workflow nav.
+const ADMIN_ITEMS: NavItem[] = [
+  { to: '/dashboard/users', labelKey: 'nav.users', icon: UserCog, adminOnly: true },
   { to: '/dashboard/widget', labelKey: 'nav.widget', icon: Code2 },
 ]
 
 export function AppSidebar() {
   const { pathname } = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const { t } = useT()
+
+  const adminItems = ADMIN_ITEMS.filter((i) => !i.adminOnly || isAdmin)
 
   function isActive(to: string) {
     // Overview is the dashboard root — match it exactly.
@@ -130,6 +145,30 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {adminItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>{t('nav.adminGroup')}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(item.to)}
+                      tooltip={t(item.labelKey)}
+                    >
+                      <Link to={item.to}>
+                        <item.icon />
+                        <span>{t(item.labelKey)}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
