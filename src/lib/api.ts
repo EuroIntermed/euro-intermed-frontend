@@ -1,0 +1,1069 @@
+import {
+  getStoredToken,
+  clearStoredAuth,
+  type AuthUser,
+  type UserRole,
+} from '@/lib/authStore'
+
+/**
+ * Resolves the backend base URL consistently across the app and the embeddable
+ * widget. The widget injects `window.__ANGROSIST_API_URL__` at runtime so a
+ * single `widget.js` can target different backends per host site; that override
+ * wins. Otherwise we fall back to the build-time `VITE_API_URL` (empty string =
+ * same-origin). No host is ever hardcoded.
+ */
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const override = (window as unknown as Record<string, unknown>)
+      .__ANGROSIST_API_URL__
+    if (typeof override === 'string' && override) return override
+  }
+  return import.meta.env.VITE_API_URL ?? ''
+}
+
+/**
+ * Resolves the privacy-policy URL linked from the GDPR consent notice. An embed
+ * may override it per host via `window.__ANGROSIST_PRIVACY_URL__` (set from the
+ * widget config); otherwise we fall back to the build-time `VITE_PRIVACY_URL`.
+ * Returns `'#'` when neither is configured so the notice still renders without a
+ * hardcoded domain. No host is ever baked into source.
+ */
+export function getPrivacyUrl(): string {
+  if (typeof window !== 'undefined') {
+    const override = (window as unknown as Record<string, unknown>)
+      .__ANGROSIST_PRIVACY_URL__
+    if (typeof override === 'string' && override) return override
+  }
+  // TODO: point VITE_PRIVACY_URL at the published policy URL per environment.
+  const fromEnv = import.meta.env.VITE_PRIVACY_URL
+  return typeof fromEnv === 'string' && fromEnv ? fromEnv : '#'
+}
+
+export interface ExtractedFields {
+  product_name?: string
+  quantity?: number
+  unit?: string
+  delivery_location?: string
+  cui?: string
+  company_name?: string
+  phone?: string
+  email?: string
+}
+
+/**
+ * The `202 Accepted` ack returned by the ASYNC `POST /api/chat`. The turn is
+ * enqueued server-side; there is **no reply here** — the assistant reply (plus
+ * `state`/`extracted`) is delivered exclusively over the SSE reply stream
+ * (`GET /api/stream`, see {@link subscribeToConversation}). The first-turn reply
+ * is published to a short replay buffer, so opening the stream promptly after
+ * this 202 won't miss it.
+ */
+export interface ChatAck {
+  conversation_id: string
+  /**
+   * Per-conversation ownership token issued on EVERY turn (incl. the first).
+   * Continuing turns, the SSE stream, and seller-photo uploads must echo it back
+   * (header / query / form field) or the backend returns 403.
+   */
+  conversation_token: string
+  /** Always `"queued"` on success — the turn was accepted for async processing. */
+  status: string
+}
+
+/** Verticals the chat agent can serve. Angrosist (wholesale buyer) is the default. */
+export type ChatVertical = 'angrosist' | 'palletclearance'
+/** Conversation intent. `buy` is the default; `sell` enables the seller (photo) flow. */
+export type ChatIntent = 'buy' | 'sell'
+
+/**
+ * Optional flow selectors. They are only meaningful on the FIRST message of a
+ * conversation (the backend pins the flow there); later messages ignore them.
+ * Omitted → backend defaults to angrosist/buy.
+ */
+export interface ChatFlow {
+  vertical?: ChatVertical
+  intent?: ChatIntent
+}
+
+export interface TranscriptMessage {
+  id: string
+  role: string
+  content: string
+  tool_calls?: string // base64-encoded JSON array of Gemini parts
+  created_at: string
+}
+
+/**
+ * Posts one user turn to the ASYNC `POST /api/chat`. Returns the `202` ack
+ * ({@link ChatAck}) only — the assistant reply arrives over SSE, NOT here. The
+ * caller must persist the returned `conversation_id` + `conversation_token` and
+ * open (or keep open) the reply stream right after this resolves.
+ *
+ * - First turn (no `conversationId`): sends `message` plus optional
+ *   `vertical`/`intent`; the backend creates the conversation and issues the
+ *   ownership token in the ack.
+ * - Continuing turn: sends `message` plus the ownership token via the
+ *   `X-Conversation-Token` header (the backend `403`s without it).
+ */
+export async function sendMessage(
+  conversationId: string | null,
+  message: string,
+  flow?: ChatFlow,
+  token?: string | null,
+): Promise<ChatAck> {
+  // vertical/intent are only sent on the first message (no conversation id yet);
+  // sending them later is harmless but the backend pins the flow on creation.
+  const isFirst = !conversationId
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  // Continuing turns MUST prove conversation ownership; the first turn has no
+  // token yet (the backend issues one in the response).
+  if (!isFirst && token) headers['X-Conversation-Token'] = token
+
+  const res = await fetch(`${getApiBase()}/api/chat`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      conversation_id: conversationId ?? undefined,
+      message,
+      ...(isFirst && flow?.vertical ? { vertical: flow.vertical } : {}),
+      ...(isFirst && flow?.intent ? { intent: flow.intent } : {}),
+    }),
+  })
+  if (!res.ok) throw new Error(`chat error ${res.status}`)
+  return res.json() as Promise<ChatAck>
+}
+
+/** Result of a successful seller-photo upload (mirrors the backend envelope). */
+export interface ConversationPhoto {
+  id: string
+  key: string
+  url: string
+}
+
+/**
+ * Uploads one seller photo to a PalletClearance/sell conversation via the PUBLIC
+ * multipart endpoint. Carries the per-conversation ownership token (no staff
+ * auth header) via `X-Conversation-Token` plus a `token` form field. Surfaces
+ * backend `{error:{code,message}}` messages — incl. 403 (missing/invalid token),
+ * 409 (per-conversation cap) and 400 (non-image / oversize) — as a thrown
+ * {@link ApiError} so the UI can show the exact reason.
+ */
+export async function uploadConversationPhoto(
+  conversationId: string,
+  file: File,
+  token?: string | null,
+): Promise<ConversationPhoto> {
+  const form = new FormData()
+  form.append('file', file)
+  // Prove conversation ownership (header preferred; form field as a belt-and-
+  // braces fallback). Without it the backend 403s in addition to seller scoping.
+  if (token) form.append('token', token)
+
+  const headers: Record<string, string> = {}
+  if (token) headers['X-Conversation-Token'] = token
+
+  const res = await fetch(
+    `${getApiBase()}/api/conversations/${encodeURIComponent(
+      conversationId,
+    )}/photos`,
+    { method: 'POST', headers, body: form },
+  )
+
+  if (!res.ok) {
+    let code = 'INTERNAL'
+    let message = `Eroare ${res.status}`
+    let details: { field: string; issue: string }[] | undefined
+    try {
+      const body = (await res.json()) as ErrorEnvelope
+      if (body.error) {
+        code = body.error.code ?? code
+        message = body.error.message ?? message
+        details = body.error.details
+      }
+    } catch {
+      /* non-JSON error body — keep defaults */
+    }
+    throw new ApiError(res.status, code, message, details)
+  }
+
+  return (await res.json()) as ConversationPhoto
+}
+
+// ===========================================================================
+// Authenticated dashboard API (M3 Epic 3.3)
+//
+// These helpers attach the staff JWT and centralize error handling against the
+// documented envelope `{error:{code,message,details}}`. On 401 anywhere we clear
+// the token and let a registered handler bounce the operator to /login. The
+// public chat/SSE helpers above are intentionally left untouched (unauthed).
+// ===========================================================================
+
+/** Structured error surfaced to callers; carries the stable backend code. */
+export class ApiError extends Error {
+  status: number
+  code: string
+  details?: { field: string; issue: string }[]
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: { field: string; issue: string }[],
+  ) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.code = code
+    this.details = details
+  }
+}
+
+/**
+ * Registered by the auth provider so the fetch wrapper can trigger a redirect on
+ * 401 without importing React. Keeping it as a module-level callback avoids
+ * coupling the data layer to the router.
+ */
+let onUnauthorized: (() => void) | null = null
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn
+}
+
+interface ErrorEnvelope {
+  error?: {
+    code?: string
+    message?: string
+    details?: { field: string; issue: string }[]
+  }
+}
+
+/**
+ * fetch wrapper for authed dashboard calls. Injects the Bearer token, parses the
+ * error envelope, and on 401 clears the token + fires the unauthorized handler
+ * (redirect to /login). Throws ApiError on any non-2xx.
+ */
+async function authedFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getStoredToken()
+  const headers = new Headers(init?.headers)
+  headers.set('Content-Type', 'application/json')
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+
+  const res = await fetch(`${getApiBase()}/api${path}`, { ...init, headers })
+
+  if (res.status === 401) {
+    clearStoredAuth()
+    onUnauthorized?.()
+    throw new ApiError(
+      401,
+      'UNAUTHENTICATED',
+      'Sesiune expirată. Autentifică-te din nou.',
+    )
+  }
+
+  if (!res.ok) {
+    let code = 'INTERNAL'
+    let message = `Eroare ${res.status}`
+    let details: { field: string; issue: string }[] | undefined
+    try {
+      const body = (await res.json()) as ErrorEnvelope
+      if (body.error) {
+        code = body.error.code ?? code
+        message = body.error.message ?? message
+        details = body.error.details
+      }
+    } catch {
+      /* non-JSON error body — keep defaults */
+    }
+    throw new ApiError(res.status, code, message, details)
+  }
+
+  // 204 / empty body tolerant
+  if (res.status === 204) return undefined as T
+  return (await res.json()) as T
+}
+
+// --- Auth -----------------------------------------------------------------
+
+export interface LoginResponse {
+  token: string
+  expires_at?: string
+  user: AuthUser
+}
+
+export async function login(
+  email: string,
+  password: string,
+): Promise<LoginResponse> {
+  // Login itself is unauthed but shares the envelope/error handling.
+  return authedFetch<LoginResponse>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+}
+
+// --- Leads (paginated, filtered) ------------------------------------------
+
+export type LeadStatus =
+  | 'draft'
+  | 'new'
+  | 'qualifying'
+  | 'needs_human'
+  | 'qualified'
+  | 'offer_requested'
+  | 'offer_sent'
+  | 'negotiation'
+  | 'won'
+  | 'lost'
+  | 'cancelled'
+
+export type Vertical = 'angrosist' | 'palletclearance' | 'skalyou'
+
+/** LeadSummary mirrors domain.LeadSummary / openapi LeadSummary. */
+export interface LeadSummary {
+  id: string
+  status: string
+  company_name: string
+  cui: string
+  product_name: string
+  quantity: number | null
+  unit: string
+  delivery_location: string
+  created_at: string
+  vertical: string
+  assigned_to: string | null
+  needs_human: boolean
+  offer_value: number | null
+  offer_note?: string
+  /**
+   * Per-conversation request number (leads.seq, migration 036) — the "#N" handle
+   * shown next to a lead in a multi-request client thread. Nullable on the wire;
+   * absent/null for legacy leads created before seq existed.
+   */
+  seq?: number | null
+  /**
+   * Lead-level follow-up reminder timestamp (leads.follow_up_at), set via the
+   * offer PATCH. Optional on the wire — absent until the backend projects it
+   * onto the summary/detail; the UI reads it defensively.
+   */
+  follow_up_at?: string | null
+}
+
+/** PageInfo is the cursor pagination envelope (B2B directory, handoff queue). */
+export interface PageInfo {
+  next_cursor: string | null
+  limit: number
+  count: number
+}
+
+/**
+ * OffsetPageInfo is the offset pagination envelope for sortable lists (the leads
+ * pipeline and the B2B directory). Unlike the cursor PageInfo it carries `total`
+ * (rows matching the filter) and `offset`, so the UI can render "Page X of Y".
+ */
+export interface OffsetPageInfo {
+  total: number
+  limit: number
+  offset: number
+  count: number
+}
+
+/** @deprecated alias kept for the leads page; use OffsetPageInfo. */
+export type LeadPageInfo = OffsetPageInfo
+
+export interface LeadListPage {
+  data: LeadSummary[]
+  page: OffsetPageInfo
+}
+
+/** Whitelisted sort keys accepted by GET /api/leads (must match the backend). */
+export type LeadSortKey = 'created_at' | 'company' | 'status' | 'offer_value'
+export type SortDir = 'asc' | 'desc'
+
+export interface LeadFilters {
+  status?: string
+  vertical?: string
+  assigned_to?: string
+  q?: string
+  offset?: number
+  limit?: number
+  sort?: LeadSortKey
+  dir?: SortDir
+}
+
+export async function listLeads(filters: LeadFilters): Promise<LeadListPage> {
+  const params = new URLSearchParams()
+  if (filters.status) params.set('status', filters.status)
+  if (filters.vertical) params.set('vertical', filters.vertical)
+  // 'none' is the UI sentinel for "unassigned"; the API contract expresses that
+  // as a present-but-empty assigned_to param (the backend then filters IS NULL).
+  if (filters.assigned_to === 'none') params.set('assigned_to', '')
+  else if (filters.assigned_to) params.set('assigned_to', filters.assigned_to)
+  if (filters.q) params.set('q', filters.q)
+  if (filters.offset) params.set('offset', String(filters.offset))
+  if (filters.limit) params.set('limit', String(filters.limit))
+  if (filters.sort) params.set('sort', filters.sort)
+  if (filters.dir) params.set('dir', filters.dir)
+  const qs = params.toString()
+  return authedFetch<LeadListPage>(`/leads${qs ? `?${qs}` : ''}`)
+}
+
+// --- Lead detail ----------------------------------------------------------
+
+/**
+ * One product line of a multi-product sourcing request (openapi SourcingLineItem
+ * / sourcing_request_items). `items[0]` mirrors the scalar product/quantity/unit
+ * for backward compatibility; legacy single-product requests have an empty list.
+ */
+export interface SourcingLineItem {
+  product: string
+  quantity?: number | null
+  unit?: string
+  spec?: string
+}
+
+export interface SourcingRequestView {
+  lead_id?: string
+  product: string
+  quantity?: number | null
+  unit?: string
+  delivery_location?: string
+  recurring?: boolean
+  budget?: number | null
+  /**
+   * Full multi-product line-item list (openapi SourcingRequest.items). Empty or
+   * absent for a legacy single-product request written before line items
+   * existed — fall back to the scalar product/quantity/unit in that case.
+   */
+  items?: SourcingLineItem[]
+}
+
+/**
+ * ListingDetailView mirrors openapi ListingDetailView: the FULL PalletClearance
+ * SELLER lot embedded in a LeadDetail (populated for a SELL lead; absent
+ * otherwise). `category` is the resolved category name when known, else empty;
+ * `unit` has no listings column yet (collected conversationally, always empty);
+ * `quantity`/`expiry`/`target_price` are nullable on the wire. `photo_count`
+ * counts attached seller photos; `documents` lists document descriptors.
+ */
+export interface ListingDetailView {
+  id: string
+  stock_type: string
+  food_non_food: string
+  category?: string
+  quantity?: number | null
+  unit?: string
+  location?: string
+  country?: string
+  expiry?: string | null
+  target_price?: number | null
+  confidential: boolean
+  status: string
+  documents?: string[]
+  photo_count: number
+  created_at: string
+}
+
+/**
+ * BuyerProfileView mirrors openapi BuyerProfileView: the PalletClearance BUYER
+ * standing-demand profile embedded in a LeadDetail (populated for a
+ * palletclearance/buy lead whose company has a profile; absent otherwise).
+ * Company-scoped. `categories` holds resolved category names (may be empty);
+ * `volume` has no column yet (collected conversationally, always empty).
+ */
+export interface BuyerProfileView {
+  id: string
+  categories?: string[]
+  volume?: string
+  countries?: string[]
+  near_expiry_ok: boolean
+  subscribed: boolean
+  created_at: string
+}
+
+export interface CompanyVerificationView {
+  source?: string
+  vat_status?: string | null
+  administrators?: string[]
+  checked_at?: string
+}
+
+export interface LeadCompanyView {
+  id: string
+  name: string
+  cui: string
+  country: string
+  reg_no?: string
+  caen?: string
+  vat_status?: string
+  roles?: string[]
+  verification?: CompanyVerificationView | null
+}
+
+export interface LeadContactView {
+  id?: string
+  name: string
+  phone: string
+  email: string
+}
+
+/**
+ * LeadSibling mirrors domain.LeadSibling / openapi LeadSibling: a compact handle
+ * on ANOTHER request (lead) of the same client conversation (migration 036),
+ * embedded in a LeadDetail so the dashboard can list a client's other requests
+ * and deep-link to them. `product` is best-effort from the typed sourcing
+ * request; `active` flags the conversation's currently-focused request
+ * (conversations.active_lead_id).
+ */
+export interface LeadSibling {
+  id: string
+  seq?: number | null
+  vertical: string
+  intent: string
+  status: string
+  product?: string
+  active: boolean
+}
+
+export interface AuthedLeadDetail extends LeadSummary {
+  address?: string
+  county?: string
+  phone?: string
+  email?: string
+  intent?: string
+  summary?: string
+  /**
+   * Parent conversation of this lead (openapi LeadDetail.conversation_id). The
+   * transcript below is scoped to THIS request's messages (messages.lead_id,
+   * migration 038); conversation_id ties the request back to its client thread.
+   */
+  conversation_id: string
+  /**
+   * The OTHER requests (leads) of the same conversation (openapi
+   * LeadDetail.sibling_requests). Excludes this lead; the conversation's active
+   * request is flagged `active`. Empty when the thread holds only this request.
+   */
+  sibling_requests: LeadSibling[]
+  /**
+   * Derived lead quality score 0..100 (openapi LeadDetail.quality_score). Set at
+   * submit from verified-company / valid-CUI / completeness / plausible-quantity
+   * signals. Null/absent when the lead has not been scored yet.
+   */
+  quality_score?: number | null
+  /**
+   * The PER-REQUEST transcript — only the messages attributed to this lead
+   * (messages.lead_id, migration 038), not the whole conversation.
+   */
+  transcript: TranscriptMessage[]
+  /**
+   * The lead's typed request. Exactly ONE of sourcing_request / listing /
+   * buyer_profile is populated per lead, selected by vertical/intent
+   * (Angrosist buyer → sourcing_request; PalletClearance sell → listing;
+   * PalletClearance buy → buyer_profile); the others are absent.
+   */
+  sourcing_request?: SourcingRequestView | null
+  /** PalletClearance SELLER lot — populated for a SELL lead, absent otherwise. */
+  listing?: ListingDetailView | null
+  /** PalletClearance BUYER standing-demand profile — populated for a PC buy lead. */
+  buyer_profile?: BuyerProfileView | null
+  company?: LeadCompanyView | null
+  contact?: LeadContactView | null
+}
+
+export async function getLeadDetail(id: string): Promise<AuthedLeadDetail> {
+  return authedFetch<AuthedLeadDetail>(`/leads/${encodeURIComponent(id)}`)
+}
+
+// --- Offer tracking + assignment ------------------------------------------
+
+export interface OfferUpdate {
+  status?: string
+  value?: number
+  note?: string
+  /**
+   * Lead-level follow-up reminder timestamp (leads.follow_up_at). RFC3339 string
+   * schedules the reminder; `null` clears it; omitting the key leaves it
+   * unchanged (openapi PATCH /leads/{id}/offer). The reminder cron reads it.
+   */
+  follow_up_at?: string | null
+}
+
+export async function updateOffer(
+  id: string,
+  body: OfferUpdate,
+): Promise<LeadSummary> {
+  return authedFetch<LeadSummary>(`/leads/${encodeURIComponent(id)}/offer`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function assignLead(
+  id: string,
+  userId: string | null,
+): Promise<LeadSummary> {
+  return authedFetch<LeadSummary>(`/leads/${encodeURIComponent(id)}/assign`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  })
+}
+
+// --- Users (admin; degrades gracefully on 403) ----------------------------
+
+export interface PublicUser {
+  id: string
+  email: string
+  name: string
+  role: UserRole
+}
+
+export async function listUsers(): Promise<PublicUser[]> {
+  return authedFetch<PublicUser[]>('/users')
+}
+
+// --- B2B directory (companies) --------------------------------------------
+
+export type CompanyRole =
+  | 'distributor'
+  | 'importer'
+  | 'wholesaler'
+  | 'retailer'
+  | 'horeca'
+  | 'processor'
+  | 'producer'
+  | 'buyer'
+  | 'seller'
+
+/** CompanySummary mirrors domain.CompanySummary / openapi Company. */
+export interface CompanySummary {
+  id: string
+  name: string
+  cui: string
+  country: string
+  reg_no: string
+  caen: string
+  vat_status: string
+  roles: string[]
+  created_at: string
+}
+
+export interface CompanyListPage {
+  data: CompanySummary[]
+  page: OffsetPageInfo
+}
+
+/** Whitelisted sort keys accepted by GET /api/companies (must match backend). */
+export type CompanySortKey = 'name' | 'created_at'
+
+export interface CompanyFilters {
+  role?: string
+  country?: string
+  q?: string
+  offset?: number
+  limit?: number
+  sort?: CompanySortKey
+  dir?: SortDir
+}
+
+export async function listCompanies(
+  filters: CompanyFilters,
+): Promise<CompanyListPage> {
+  const params = new URLSearchParams()
+  if (filters.role) params.set('role', filters.role)
+  if (filters.country) params.set('country', filters.country)
+  if (filters.q) params.set('q', filters.q)
+  if (filters.offset) params.set('offset', String(filters.offset))
+  if (filters.limit) params.set('limit', String(filters.limit))
+  if (filters.sort) params.set('sort', filters.sort)
+  if (filters.dir) params.set('dir', filters.dir)
+  const qs = params.toString()
+  return authedFetch<CompanyListPage>(`/companies${qs ? `?${qs}` : ''}`)
+}
+
+/** Distinct roles + countries present in the directory (for the filter pickers). */
+export interface CompanyFacets {
+  roles: string[]
+  countries: string[]
+}
+
+export async function getCompanyFacets(): Promise<CompanyFacets> {
+  return authedFetch<CompanyFacets>('/companies/facets')
+}
+
+/** Staff manual role override. Unknown values are dropped server-side. */
+export async function updateCompanyRoles(
+  id: string,
+  roles: string[],
+): Promise<CompanySummary> {
+  return authedFetch<CompanySummary>(
+    `/companies/${encodeURIComponent(id)}/roles`,
+    { method: 'PATCH', body: JSON.stringify({ roles }) },
+  )
+}
+
+/**
+ * CompanyFinancialView mirrors domain.CompanyFinancialView. One year's snapshot.
+ * turnover/net_profit/employees are nullable on the wire = "not reported".
+ * Newest-first as returned by the backend.
+ */
+export interface CompanyFinancialView {
+  year: number
+  turnover: number | null
+  net_profit: number | null
+  employees: number | null
+  caen_description?: string
+}
+
+/**
+ * An administrator may arrive as a bare name string or as an object carrying a
+ * `name` field — the UI normalizes both (see administratorName()).
+ */
+export type CompanyAdministrator = string | { name?: string }
+
+/** CompanyDetail mirrors domain.CompanyDetail / openapi CompanyDetail. */
+export interface CompanyDetail extends CompanySummary {
+  address?: string
+  county?: string
+  /** ONRC J-number (e.g. "J40/372/2002"); may be absent. */
+  registration_number?: string
+  /** Incorporation date (ISO); null/absent when unknown. */
+  registration_date?: string | null
+  /** Legal form (SA / SRL / ...). */
+  legal_form?: string
+  /** e-Factura (e-invoicing) registration flag. */
+  e_factura?: boolean
+  /** All permitted activity codes when available. */
+  authorized_caen?: string[]
+  /** Administrator names (string[] or object[] — normalize before display). */
+  administrators?: CompanyAdministrator[]
+  is_active?: boolean
+  verification?: CompanyVerificationView | null
+  financials?: CompanyFinancialView[]
+}
+
+/** Normalizes an administrator entry (string or {name}) to a display string. */
+export function administratorName(a: CompanyAdministrator): string {
+  return typeof a === 'string' ? a : (a?.name ?? '')
+}
+
+export async function getCompany(id: string): Promise<CompanyDetail> {
+  return authedFetch<CompanyDetail>(`/companies/${encodeURIComponent(id)}`)
+}
+
+// --- Handoff queue ---------------------------------------------------------
+
+/** HandoffItem mirrors domain.HandoffItem / openapi HandoffItem. */
+export interface HandoffItem {
+  id: string
+  status: string
+  vertical: string
+  company_name: string
+  product_name: string
+  assigned_to: string | null
+  last_message: string
+  created_at: string
+}
+
+export interface HandoffListPage {
+  data: HandoffItem[]
+  page: PageInfo
+}
+
+export async function listHandoffs(): Promise<HandoffListPage> {
+  return authedFetch<HandoffListPage>('/handoffs')
+}
+
+// --- Inventory / listings (PalletClearance, cursor-paginated) -------------
+
+/**
+ * Listing status values (listings.status). 'active' is the seller-live default;
+ * the rest are staff/lifecycle transitions. Mirrors the DDL doc'd set.
+ */
+export type ListingStatus =
+  'active' | 'reserved' | 'sold' | 'expired' | 'withdrawn'
+
+/** food / non_food classification (listings.food_non_food). */
+export type FoodNonFood = 'food' | 'non_food'
+
+/**
+ * ListingView mirrors domain.ListingView (openapi ListingView): the stock-
+ * inventory dashboard projection — the listing facets staff triage plus the
+ * joined seller company name, resolved category, and seller photo count.
+ * `unit` is currently always empty (no listings.unit column yet); quantity /
+ * target_price / expiry are nullable on the wire.
+ */
+export interface ListingView {
+  id: string
+  lead_id: string
+  company_id: string
+  company_name: string
+  category: string
+  stock_type: string
+  food_non_food: string
+  quantity: number | null
+  unit: string
+  location: string
+  country: string
+  expiry: string | null
+  target_price: number | null
+  confidential: boolean
+  status: string
+  photo_count: number
+  created_at: string
+}
+
+/** Cursor-paginated inventory page — same envelope as the handoff queue. */
+export interface ListingListPage {
+  data: ListingView[]
+  page: PageInfo
+}
+
+export interface ListingFilters {
+  status?: string
+  stock_type?: string
+  food_non_food?: string
+  country?: string
+  q?: string
+  limit?: number
+  cursor?: string
+}
+
+/**
+ * Fetches one keyset page of the PalletClearance stock inventory. Filters are
+ * exact-match (status/stock_type/food_non_food/country) plus an ILIKE `q`; the
+ * next page is requested by passing back `page.next_cursor`. Mirrors the handoff
+ * queue's cursor envelope.
+ */
+export async function listListings(
+  filters: ListingFilters,
+): Promise<ListingListPage> {
+  const params = new URLSearchParams()
+  if (filters.status) params.set('status', filters.status)
+  if (filters.stock_type) params.set('stock_type', filters.stock_type)
+  if (filters.food_non_food) params.set('food_non_food', filters.food_non_food)
+  if (filters.country) params.set('country', filters.country)
+  if (filters.q) params.set('q', filters.q)
+  if (filters.limit) params.set('limit', String(filters.limit))
+  if (filters.cursor) params.set('cursor', filters.cursor)
+  const qs = params.toString()
+  return authedFetch<ListingListPage>(`/listings${qs ? `?${qs}` : ''}`)
+}
+
+// --- KPIs ------------------------------------------------------------------
+
+/** One bucket of a KPI breakdown (a label + its row count). openapi LabelCount. */
+export interface LabelCount {
+  label: string
+  count: number
+}
+
+/**
+ * Kpis mirrors domain.KPIs / openapi Kpis. Headline scalars plus the breakdown
+ * arrays (each a `LabelCount[]`, never null). `avg_first_response_seconds` is the
+ * mean first-response latency over the last 90 days, or null when there is none.
+ */
+export interface Kpis {
+  total_leads: number
+  offers_sent: number
+  won: number
+  qualified: number
+  conversion_rate: number
+  pipeline_value: number
+  by_source: LabelCount[]
+  by_vertical: LabelCount[]
+  by_intent: LabelCount[]
+  by_language: LabelCount[]
+  by_country: LabelCount[]
+  top_categories: LabelCount[]
+  delivery_locations: LabelCount[]
+  origin_countries: LabelCount[]
+  avg_first_response_seconds: number | null
+}
+
+export async function getKpis(): Promise<Kpis> {
+  return authedFetch<Kpis>('/kpis')
+}
+
+// --- Tasks / follow-ups ----------------------------------------------------
+
+export type TaskStatus = 'open' | 'done'
+
+/** Task mirrors domain.Task / openapi Task. */
+export interface Task {
+  id: string
+  lead_id?: string | null
+  assigned_to?: string | null
+  title: string
+  note?: string
+  status: TaskStatus
+  due_at?: string | null
+  created_by?: string | null
+  created_at: string
+  completed_at?: string | null
+}
+
+export interface TaskFilters {
+  status?: TaskStatus
+  /** User id; the sentinel '' (empty) filters for unassigned tasks. */
+  assigned_to?: string
+  lead_id?: string
+}
+
+export async function listTasks(filters: TaskFilters = {}): Promise<Task[]> {
+  const params = new URLSearchParams()
+  if (filters.status) params.set('status', filters.status)
+  // The contract names the owner filter `assignee`; an empty value = unassigned.
+  if (filters.assigned_to !== undefined)
+    params.set('assignee', filters.assigned_to)
+  if (filters.lead_id) params.set('lead_id', filters.lead_id)
+  const qs = params.toString()
+  const res = await authedFetch<{ data: Task[] }>(`/tasks${qs ? `?${qs}` : ''}`)
+  return res.data
+}
+
+export interface TaskCreate {
+  title: string
+  note?: string
+  lead_id?: string | null
+  assigned_to?: string | null
+  due_at?: string | null
+}
+
+export async function createTask(body: TaskCreate): Promise<Task> {
+  return authedFetch<Task>('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export interface TaskUpdate {
+  status?: TaskStatus
+  note?: string
+  /** RFC3339 to schedule, null to clear, omit to leave unchanged. */
+  due_at?: string | null
+  /** User id to assign, null to unassign, omit to leave unchanged. */
+  assigned_to?: string | null
+}
+
+export async function updateTask(id: string, patch: TaskUpdate): Promise<Task> {
+  return authedFetch<Task>(`/tasks/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// SSE: real-time agent replies + typing indicator (M2 Epic 2.3)
+// ---------------------------------------------------------------------------
+
+/** Payload delivered to `onMessage` — normalized from the Go-JSON `message` event. */
+export interface StreamMessage {
+  reply: string
+  state: string
+  extracted: ExtractedFields
+  /** Conversation's current flow — lets the UI react to a mid-chat re-route. */
+  vertical?: string
+  intent?: string
+}
+
+export interface StreamHandlers {
+  /** Agent started working — show the typing indicator. */
+  onTyping?: () => void
+  /** Agent produced a reply — append it, update extracted fields, hide typing. */
+  onMessage?: (msg: StreamMessage) => void
+  /** Stream-level or agent error — show a friendly message, hide typing. */
+  onError?: (message: string) => void
+  /** EventSource connection opened — used to decide SSE-vs-POST de-dupe. */
+  onOpen?: () => void
+}
+
+export interface StreamOptions {
+  /**
+   * Per-conversation ownership token. EventSource can't set request headers, so
+   * it travels as a `&token=` query param. Required by the backend or the stream
+   * 403s.
+   */
+  token?: string | null
+  /** Custom EventSource factory (testing). Defaults to the global EventSource. */
+  eventSourceFactory?: (url: string) => EventSource
+}
+
+/**
+ * Shape of the backend SSE event payload. The wire format uses LOWERCASE json
+ * tags (e.g. `{"type":"message","reply":"...","state":"qualifying"}`) — the
+ * broker event struct sets explicit `json:"reply"` tags. We read the lowercase
+ * keys (with a capitalized fallback for safety) so the reply is never dropped.
+ */
+interface StreamEventData {
+  type?: string
+  reply?: string
+  state?: string
+  extracted?: ExtractedFields | null
+  error?: string
+  vertical?: string
+  intent?: string
+  // Capitalized fallbacks (defensive; not what the backend currently emits).
+  Reply?: string
+  State?: string
+  Extracted?: ExtractedFields | null
+  Error?: string
+}
+
+/**
+ * Opens an SSE subscription for a conversation and dispatches named events to
+ * the provided handlers. Returns an unsubscribe function that closes the
+ * EventSource. Heartbeat comments (`: ping`) are ignored by EventSource itself.
+ */
+export function subscribeToConversation(
+  conversationId: string,
+  handlers: StreamHandlers,
+  options?: StreamOptions,
+): () => void {
+  const url =
+    `${getApiBase()}/api/stream?conversation_id=${encodeURIComponent(
+      conversationId,
+    )}` + (options?.token ? `&token=${encodeURIComponent(options.token)}` : '')
+  const es = options?.eventSourceFactory
+    ? options.eventSourceFactory(url)
+    : new EventSource(url)
+
+  es.addEventListener('open', () => handlers.onOpen?.())
+
+  es.addEventListener('typing', () => handlers.onTyping?.())
+
+  es.addEventListener('message', (e) => {
+    try {
+      const data = JSON.parse((e as MessageEvent).data) as StreamEventData
+      const err = data.error ?? data.Error
+      if (err) {
+        handlers.onError?.(err)
+        return
+      }
+      handlers.onMessage?.({
+        reply: data.reply ?? data.Reply ?? '',
+        state: data.state ?? data.State ?? '',
+        extracted: data.extracted ?? data.Extracted ?? {},
+        vertical: data.vertical,
+        intent: data.intent,
+      })
+    } catch {
+      handlers.onError?.('stream parse error')
+    }
+  })
+
+  es.addEventListener('error', (e) => {
+    // The native EventSource `error` event carries no JSON; the backend's
+    // application-level `error` event does. Try to parse, else generic message.
+    const raw = (e as MessageEvent).data
+    if (typeof raw === 'string' && raw) {
+      try {
+        const data = JSON.parse(raw) as StreamEventData
+        handlers.onError?.(data.error ?? data.Error ?? 'agent error')
+        return
+      } catch {
+        /* fall through */
+      }
+    }
+    handlers.onError?.('connection error')
+  })
+
+  return () => es.close()
+}

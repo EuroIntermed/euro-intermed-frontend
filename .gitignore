@@ -1,0 +1,36 @@
+# env files — never commit real values
+/.env
+backend/.env
+frontend/.env
+deploy/scripts/.env
+deploy/scripts/.env.*
+!deploy/scripts/.env.example
+
+# Claude Code local settings (may hold local secrets)
+.claude/settings.local.json
+.claude/hooks/__pycache__/
+
+# Go
+backend/vendor/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/dist-widget/
+
+# Terraform — never commit state, real tfvars, or backend config
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+!*.tfvars.example
+backend.hcl
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# OS
+.DS_Store
