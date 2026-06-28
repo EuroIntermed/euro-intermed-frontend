@@ -18,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { type Message } from '@/components/chat/MessageList'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
 import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
@@ -27,13 +26,11 @@ import {
   TranscriptThread,
   type RequestRef,
 } from '@/components/dashboard/TranscriptThread'
-import { resolveContent } from '@/lib/chat/transcript'
 import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
 import { PageShell } from '@/components/layout/PageShell'
 import { StatStrip, type Stat } from '@/components/dashboard/StatStrip'
-import { TranscriptSheet } from '@/components/dashboard/TranscriptSheet'
 import {
   useT,
   useEnums,
@@ -308,16 +305,6 @@ export function LeadDetail({ lead, users }: Props) {
   const { t, lang } = useT()
   const { verticalLabel, roleLabel, intentLabel } = useEnums()
 
-  const chatMessages: Message[] = (lead.transcript ?? [])
-    .filter(
-      (m) => m.role === 'user' || m.role === 'model' || m.role === 'assistant',
-    )
-    .map((m) => ({
-      role: (m.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-      content: resolveContent(m),
-    }))
-    .filter((m) => m.content)
-
   const company = lead.company
   const contact = lead.contact
   const verification = company?.verification
@@ -354,11 +341,9 @@ export function LeadDetail({ lead, users }: Props) {
   })()
 
   const title = lead.company_name || t('detail.fallbackTitle')
+  // Glance bar: created + location. The offer value lives in its own card below,
+  // so it isn't repeated here.
   const stats: Stat[] = [
-    {
-      label: t('pipeline.colValue'),
-      value: formatRON(lang, lead.offer_value, t('common.none')),
-    },
     {
       label: t('pipeline.colCreated'),
       value: formatDate(lang, lead.created_at),
@@ -404,35 +389,34 @@ export function LeadDetail({ lead, users }: Props) {
           )}
         </>
       }
-      actions={
-        <TranscriptSheet
-          messages={chatMessages}
-          title={t('detail.transcript')}
-        />
-      }
     >
       <StatStrip stats={stats} />
 
       {lead.needs_human && <HandoffCallout />}
 
-      {/* Full conversation thread (promoted inline; the header action still opens
-          the focused drawer view). */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            {t('detail.sectionTranscript')}
-          </CardTitle>
-          <CardDescription>{t('detail.sectionTranscriptDesc')}</CardDescription>
-        </CardHeader>
-        <CardContent>
+      {/* Two columns: the conversation + the request fill the wide main column;
+          actions and reference cards stack in a narrower sidebar so short cards
+          never leave a tall void. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+          {/* Conversation — the full thread, shown once (no separate drawer). */}
+          <Card className="flex flex-col">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                {t('detail.sectionTranscript')}
+              </CardTitle>
+              <CardDescription>
+                {t('detail.sectionTranscriptDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="max-h-[68vh] overflow-y-auto">
           <TranscriptThread messages={lead.transcript ?? []} requests={requests} />
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {/* Typed request: PalletClearance listing / buyer profile, else the
-            Angrosist sourcing-request (extracted) card. */}
-        {listing ? (
+          {/* Typed request: PalletClearance listing / buyer profile, else the
+              Angrosist sourcing-request (extracted) card. */}
+          {listing ? (
           <ListingCard listing={listing} />
         ) : buyerProfile ? (
           <BuyerProfileCard profile={buyerProfile} />
@@ -526,10 +510,16 @@ export function LeadDetail({ lead, users }: Props) {
               )}
             </CardContent>
           </Card>
-        )}
+          )}
+        </div>
 
-        {/* Company */}
-        {company && (
+        {/* Sidebar: actions first (most-used), then company + contact reference. */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <OfferCard lead={lead} />
+          <AssigneeCard lead={lead} users={users} />
+          <FollowUpCard lead={lead} />
+
+          {company && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
@@ -622,9 +612,7 @@ export function LeadDetail({ lead, users }: Props) {
           </Card>
         )}
 
-        <OfferCard lead={lead} />
-        <FollowUpCard lead={lead} />
-        <AssigneeCard lead={lead} users={users} />
+        </div>
       </div>
 
       <SiblingRequests siblings={lead.sibling_requests ?? []} />

@@ -146,197 +146,216 @@ export function CompanyDetailPage() {
     >
       <StatStrip stats={heroStats} />
 
-      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {/* Identity / registry */}
-        <Card className="md:row-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              {t('companies.identity')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="flex flex-col gap-3">
-              <Field label={t('companies.colName')} value={company.name} />
-              <Field
-                label={t('companies.colCui')}
-                value={company.cui || company.reg_no}
-              />
-              <Field
-                label={t('companies.colCountry')}
-                value={company.country}
-              />
-              <Field label={t('companies.regNo')} value={company.reg_no} />
-              <Field
-                label={t('companies.registrationNumber')}
-                value={company.registration_number}
-              />
-              <Field
-                label={t('companies.registrationDate')}
-                value={
-                  company.registration_date
-                    ? formatDate(lang, company.registration_date)
-                    : undefined
-                }
-              />
-              <Field
-                label={t('companies.legalForm')}
-                value={company.legal_form}
-              />
+      {/* Main (registry + financials) + a narrower sidebar (verification,
+          administrators, roles). Cards flow within each column so short cards no
+          longer leave a tall void beside the identity card. */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        <div className="flex flex-col gap-4 lg:col-span-2">
+          {/* Identity / registry — two-column dl so the tall list reads compactly */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {t('companies.identity')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                <Field label={t('companies.colName')} value={company.name} />
+                <Field
+                  label={t('companies.colCui')}
+                  value={company.cui || company.reg_no}
+                />
+                <Field
+                  label={t('companies.colCountry')}
+                  value={company.country}
+                />
+                <Field label={t('companies.regNo')} value={company.reg_no} />
+                <Field
+                  label={t('companies.registrationNumber')}
+                  value={company.registration_number}
+                />
+                <Field
+                  label={t('companies.registrationDate')}
+                  value={
+                    company.registration_date
+                      ? formatDate(lang, company.registration_date)
+                      : undefined
+                  }
+                />
+                <Field
+                  label={t('companies.legalForm')}
+                  value={company.legal_form}
+                />
+                <Field label={t('companies.colCaen')} value={company.caen} />
 
-              {/* VAT status — localized label + colored badge (fixes bare "unknown"). */}
-              <div>
-                <dt className="text-xs text-muted-foreground mb-1.5">
-                  {t('companies.vatStatus')}
-                </dt>
-                <dd>
-                  <Badge variant={vatBadgeVariant(company.vat_status)}>
-                    {vatLabel(company.vat_status)}
-                  </Badge>
-                </dd>
-              </div>
-
-              {/* e-Factura yes/no badge. */}
-              {company.e_factura != null && (
-                <div>
-                  <dt className="text-xs text-muted-foreground mb-1.5">
-                    {t('companies.eFactura')}
-                  </dt>
-                  <dd>
-                    <Badge
-                      variant={company.e_factura ? 'default' : 'secondary'}
-                    >
-                      {company.e_factura ? t('detail.yes') : t('detail.no')}
-                    </Badge>
-                  </dd>
-                </div>
-              )}
-
-              <Field label={t('companies.colCaen')} value={company.caen} />
-              <Field label={t('companies.address')} value={company.address} />
-              <Field label={t('companies.county')} value={company.county} />
-            </dl>
-
-            <CompanyRolesEditor
-              companyId={company.id}
-              roles={company.roles ?? []}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Administrators */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              {t('companies.administrators')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {administrators.length > 0 ? (
-              <ul className="flex flex-col gap-1.5">
-                {administrators.map((name, i) => (
-                  <li key={`${name}-${i}`} className="text-sm font-medium">
-                    {name}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t('common.none')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Verification */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              {t('companies.verification')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {verification ? (
-              <dl className="flex flex-col gap-3">
+                {/* VAT status — localized label + colored badge. */}
                 <div>
                   <dt className="text-xs text-muted-foreground mb-1.5">
                     {t('companies.vatStatus')}
                   </dt>
                   <dd>
-                    <Badge variant={vatBadgeVariant(verification.vat_status)}>
-                      {vatLabel(verification.vat_status)}
+                    <Badge variant={vatBadgeVariant(company.vat_status)}>
+                      {vatLabel(company.vat_status)}
                     </Badge>
                   </dd>
                 </div>
-                <Field
-                  label={t('detail.checkedAt')}
-                  value={
-                    verification.checked_at
-                      ? formatDateTime(lang, verification.checked_at)
-                      : undefined
-                  }
-                />
-              </dl>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                {t('detail.noVerification')}
-              </p>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Financials (multi-year) */}
-        <Card className="md:col-span-2 xl:col-span-3">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-              {t('companies.financials')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {financials.length > 0 ? (
-              <>
-                <Separator />
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('companies.year')}</TableHead>
-                      <TableHead className="text-right">
-                        {t('companies.turnover')}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t('companies.netProfit')}
-                      </TableHead>
-                      <TableHead className="text-right">
-                        {t('companies.employees')}
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {financials.map((f) => (
-                      <TableRow key={f.year}>
-                        <TableCell className="tabular-nums">{f.year}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatRON(lang, f.turnover, t('common.none'))}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {formatRON(lang, f.net_profit, t('common.none'))}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.employees == null ? t('common.none') : f.employees}
-                        </TableCell>
+                {/* e-Factura yes/no badge. */}
+                {company.e_factura != null && (
+                  <div>
+                    <dt className="text-xs text-muted-foreground mb-1.5">
+                      {t('companies.eFactura')}
+                    </dt>
+                    <dd>
+                      <Badge
+                        variant={company.e_factura ? 'default' : 'secondary'}
+                      >
+                        {company.e_factura ? t('detail.yes') : t('detail.no')}
+                      </Badge>
+                    </dd>
+                  </div>
+                )}
+
+                <Field label={t('companies.address')} value={company.address} />
+                <Field label={t('companies.county')} value={company.county} />
+              </dl>
+            </CardContent>
+          </Card>
+
+          {/* Financials (multi-year) */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {t('companies.financials')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {financials.length > 0 ? (
+                <>
+                  <Separator />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('companies.year')}</TableHead>
+                        <TableHead className="text-right">
+                          {t('companies.turnover')}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {t('companies.netProfit')}
+                        </TableHead>
+                        <TableHead className="text-right">
+                          {t('companies.employees')}
+                        </TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </>
-            ) : (
-              <div className="px-6 pb-6">
+                    </TableHeader>
+                    <TableBody>
+                      {financials.map((f) => (
+                        <TableRow key={f.year}>
+                          <TableCell className="tabular-nums">
+                            {f.year}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatRON(lang, f.turnover, t('common.none'))}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {formatRON(lang, f.net_profit, t('common.none'))}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {f.employees == null
+                              ? t('common.none')
+                              : f.employees}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </>
+              ) : (
+                <div className="px-6 pb-6">
+                  <p className="text-sm text-muted-foreground">
+                    {t('companies.noFinancials')}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar: verification, administrators, roles */}
+        <div className="flex flex-col gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {t('companies.verification')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {verification ? (
+                <dl className="flex flex-col gap-3">
+                  <div>
+                    <dt className="text-xs text-muted-foreground mb-1.5">
+                      {t('companies.vatStatus')}
+                    </dt>
+                    <dd>
+                      <Badge variant={vatBadgeVariant(verification.vat_status)}>
+                        {vatLabel(verification.vat_status)}
+                      </Badge>
+                    </dd>
+                  </div>
+                  <Field
+                    label={t('detail.checkedAt')}
+                    value={
+                      verification.checked_at
+                        ? formatDateTime(lang, verification.checked_at)
+                        : undefined
+                    }
+                  />
+                </dl>
+              ) : (
                 <p className="text-sm text-muted-foreground">
-                  {t('companies.noFinancials')}
+                  {t('detail.noVerification')}
                 </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {t('companies.administrators')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {administrators.length > 0 ? (
+                <ul className="flex flex-col gap-1.5">
+                  {administrators.map((name, i) => (
+                    <li key={`${name}-${i}`} className="text-sm font-medium">
+                      {name}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t('common.none')}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+                {t('detail.roles')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CompanyRolesEditor
+                companyId={company.id}
+                roles={company.roles ?? []}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </PageShell>
   )
