@@ -637,6 +637,7 @@ export interface PublicUser {
   email: string
   name: string
   role: UserRole
+  active: boolean
 }
 
 export async function listUsers(): Promise<PublicUser[]> {
@@ -654,6 +655,53 @@ export interface UserCreate {
 /** Create a staff/admin user. Admin only; 409 on duplicate email. */
 export async function createUser(body: UserCreate): Promise<PublicUser> {
   return authedFetch<PublicUser>('/users', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/** Partial user update (PATCH /api/users/{id}, admin only). */
+export interface UserUpdate {
+  name?: string
+  role?: UserRole
+  active?: boolean
+}
+
+/** Update a user's name/role/active flag. Admin only. */
+export async function updateUser(
+  id: string,
+  body: UserUpdate,
+): Promise<PublicUser> {
+  return authedFetch<PublicUser>(`/users/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+/** GDPR erasure report (counts of what was removed/redacted; openapi ErasureReport). */
+export interface ErasureReport {
+  contact_id: string
+  leads_deleted: number
+  conversations_deleted: number
+  messages_deleted: number
+  sourcing_requests_deleted: number
+  listings_deleted: number
+  consents_deleted: number
+  documents_deleted: number
+  blobs_deleted: number
+  blobs_failed: number
+  audit_rows_redacted: number
+}
+
+/**
+ * Run a GDPR data-subject erasure by email or contact id (admin only). Cascades
+ * across the personal graph and returns the counts removed/redacted.
+ */
+export async function requestErasure(body: {
+  email?: string
+  contact_id?: string
+}): Promise<ErasureReport> {
+  return authedFetch<ErasureReport>('/gdpr/erasure', {
     method: 'POST',
     body: JSON.stringify(body),
   })

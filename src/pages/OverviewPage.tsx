@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/card'
 import { PageShell } from '@/components/layout/PageShell'
 import { KpiCards } from '@/components/dashboard/KpiCards'
+import { KpiFunnel } from '@/components/dashboard/KpiFunnel'
 import { KpiBreakdowns } from '@/components/dashboard/KpiBreakdowns'
 import { TriageSection } from '@/components/dashboard/TriageSection'
 import { SupplyDemandSection } from '@/components/dashboard/SupplyDemandSection'
@@ -106,6 +107,7 @@ export function OverviewPage() {
             desc={t('overview.healthDesc')}
           />
           <KpiCards />
+          <KpiFunnel />
           <KpiBreakdowns />
         </section>
 

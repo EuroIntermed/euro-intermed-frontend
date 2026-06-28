@@ -252,6 +252,32 @@ export const ro = {
     roleStaff: 'Operator',
     roleAdmin: 'Administrator',
     roleAdminGlobal: 'Administrator global',
+    colActive: 'Stare',
+    active: 'Activ',
+    inactive: 'Inactiv',
+    you: 'tu',
+    actions: 'Acțiuni',
+    edit: 'Editează rolul',
+    editTitle: 'Editează utilizatorul',
+    editDescription: 'Schimbă rolul contului.',
+    activate: 'Activează',
+    deactivate: 'Dezactivează',
+    updated: 'Utilizator actualizat.',
+    updateError: 'Nu am putut actualiza utilizatorul.',
+  },
+  gdpr: {
+    title: 'GDPR — Ștergere date',
+    subtitle:
+      'Șterge ireversibil datele personale ale unei persoane vizate, după email.',
+    email: 'Email persoană vizată',
+    run: 'Rulează ștergerea',
+    confirmTitle: 'Confirmă ștergerea',
+    confirmBody:
+      'Aceasta șterge ireversibil lead-urile, conversațiile, mesajele și fișierele pentru {email}. Companiile publice se păstrează; jurnalul de audit se redactează.',
+    confirm: 'Șterge definitiv',
+    error: 'Nu am putut rula ștergerea (persoană negăsită?).',
+    reportSummary:
+      '{leads} lead-uri, {messages} mesaje, {docs} documente șterse · {audit} rânduri audit redactate',
   },
   kpi: {
     totalLeads: 'Total lead-uri',
@@ -273,6 +299,8 @@ export const ro = {
     breakdownEmpty: 'Fără date.',
     seconds: '{n}s',
     minutesSeconds: '{m}m {s}s',
+    funnel: 'Pâlnie de conversie',
+    ofTotal: '{n}% din total',
   },
   tasks: {
     title: 'Sarcini',
@@ -772,6 +800,32 @@ export const en: Dict = {
     roleStaff: 'Staff',
     roleAdmin: 'Admin',
     roleAdminGlobal: 'Global admin',
+    colActive: 'Status',
+    active: 'Active',
+    inactive: 'Inactive',
+    you: 'you',
+    actions: 'Actions',
+    edit: 'Edit role',
+    editTitle: 'Edit user',
+    editDescription: 'Change the account role.',
+    activate: 'Activate',
+    deactivate: 'Deactivate',
+    updated: 'User updated.',
+    updateError: 'Could not update the user.',
+  },
+  gdpr: {
+    title: 'GDPR — Data erasure',
+    subtitle:
+      "Irreversibly erase a data subject's personal data, by email.",
+    email: 'Data subject email',
+    run: 'Run erasure',
+    confirmTitle: 'Confirm erasure',
+    confirmBody:
+      'This irreversibly deletes the leads, conversations, messages and files for {email}. Public companies are kept; the audit log is redacted.',
+    confirm: 'Erase permanently',
+    error: 'Could not run the erasure (subject not found?).',
+    reportSummary:
+      '{leads} leads, {messages} messages, {docs} documents deleted · {audit} audit rows redacted',
   },
   kpi: {
     totalLeads: 'Total leads',
@@ -793,6 +847,8 @@ export const en: Dict = {
     breakdownEmpty: 'No data.',
     seconds: '{n}s',
     minutesSeconds: '{m}m {s}s',
+    funnel: 'Conversion funnel',
+    ofTotal: '{n}% of total',
   },
   tasks: {
     title: 'Tasks',
