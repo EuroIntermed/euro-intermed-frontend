@@ -157,6 +157,9 @@ export const ro = {
       'Agentul a fost oprit pentru acest lead — un consultant trebuie să preia conversația.',
     confidentialTooltip:
       'Vânzătorul a cerut anonimat. Administratorii văd totuși numele complet al companiei.',
+    photos: 'Fotografii',
+    noPhotos: 'Nicio fotografie încărcată.',
+    photosError: 'Nu am putut încărca fotografiile.',
   },
   overview: {
     subtitle: 'Ce trebuie făcut, sănătatea afacerii și piața dintr-o privire.',
@@ -641,6 +644,9 @@ export const en: Dict = {
       'The bot is muted for this lead — a consultant must take over the chat.',
     confidentialTooltip:
       'The seller requested company anonymity. Admins still see the full company name.',
+    photos: 'Photos',
+    noPhotos: 'No photos uploaded.',
+    photosError: 'Could not load the photos.',
   },
   overview: {
     subtitle: 'What to do, business health, and the marketplace at a glance.',

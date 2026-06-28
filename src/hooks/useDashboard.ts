@@ -9,6 +9,7 @@ import {
   getCompanyFacets,
   listHandoffs,
   listListings,
+  listListingPhotos,
   getKpis,
   listTasks,
   ApiError,
@@ -100,6 +101,19 @@ export function useListings(filters: ListingFilters) {
     queryKey: ['listings', filters],
     queryFn: () => listListings(filters),
     placeholderData: (prev) => prev,
+  })
+}
+
+/**
+ * Seller photos (signed URLs) for a PalletClearance listing. Enabled only when a
+ * listing id is present. URLs are ~1h-signed, so the result is cached briefly.
+ */
+export function useListingPhotos(listingId: string | undefined) {
+  return useQuery({
+    queryKey: ['listing-photos', listingId],
+    queryFn: () => listListingPhotos(listingId as string),
+    enabled: !!listingId,
+    staleTime: 5 * 60_000,
   })
 }
 

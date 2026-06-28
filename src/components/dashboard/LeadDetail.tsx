@@ -22,6 +22,7 @@ import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
 import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
 import { HandoffCallout } from '@/components/dashboard/HandoffCallout'
+import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
 import {
   TranscriptThread,
   type RequestRef,
@@ -135,6 +136,9 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
               </Badge>
             </dd>
           </div>
+          {listing.id && listing.photo_count > 0 && (
+            <PhotoGallery listingId={listing.id} />
+          )}
           {listing.documents && listing.documents.length > 0 && (
             <div>
               <dt className="mb-1.5 text-xs text-muted-foreground">

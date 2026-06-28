@@ -852,6 +852,24 @@ export async function listListings(
   return authedFetch<ListingListPage>(`/listings${qs ? `?${qs}` : ''}`)
 }
 
+/** One seller photo with a time-limited signed download URL (openapi PhotoView). */
+export interface LeadPhoto {
+  id: string
+  url: string
+  mime?: string
+}
+
+/**
+ * Seller photos for a PalletClearance listing — signed, time-limited URLs the
+ * dashboard renders as a gallery. `listingId` is the lead detail's `listing.id`.
+ */
+export async function listListingPhotos(listingId: string): Promise<LeadPhoto[]> {
+  const res = await authedFetch<{ photos: LeadPhoto[] }>(
+    `/listings/${encodeURIComponent(listingId)}/photos`,
+  )
+  return res.photos ?? []
+}
+
 // --- KPIs ------------------------------------------------------------------
 
 /** One bucket of a KPI breakdown (a label + its row count). openapi LabelCount. */
