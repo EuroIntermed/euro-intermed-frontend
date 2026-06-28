@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ImageIcon, Lock } from 'lucide-react'
+import { ImageIcon } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
+import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
 import { cn } from '@/lib/utils'
 import { useT, useEnums, formatRON, formatDate } from '@/lib/i18n'
 import type { ListingView } from '@/lib/api'
@@ -67,14 +68,9 @@ export function InventoryTable({ listings }: Props) {
                   }
                 >
                   <TableCell className="font-medium">
-                    <span className="flex items-center gap-1.5">
-                      {l.confidential && (
-                        <Lock
-                          className="h-3.5 w-3.5 text-muted-foreground shrink-0"
-                          aria-label={t('inventory.confidential')}
-                        />
-                      )}
+                    <span className="flex flex-wrap items-center gap-1.5">
                       {l.company_name || t('common.none')}
+                      {l.confidential && <ConfidentialBadge />}
                     </span>
                   </TableCell>
                   <TableCell>{l.category || t('common.none')}</TableCell>

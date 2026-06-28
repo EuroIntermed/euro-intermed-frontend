@@ -91,6 +91,10 @@ export interface TranscriptMessage {
   content: string
   tool_calls?: string // base64-encoded JSON array of Gemini parts
   created_at: string
+  // The request this message was attributed to (messages.lead_id). Null/absent
+  // for pre-submission turns (greeting/router). Lets the dashboard group a
+  // multi-request conversation per request.
+  lead_id?: string
 }
 
 /**
@@ -531,9 +535,9 @@ export interface AuthedLeadDetail extends LeadSummary {
   intent?: string
   summary?: string
   /**
-   * Parent conversation of this lead (openapi LeadDetail.conversation_id). The
-   * transcript below is scoped to THIS request's messages (messages.lead_id,
-   * migration 038); conversation_id ties the request back to its client thread.
+   * Parent conversation of this lead (openapi LeadDetail.conversation_id). Each
+   * transcript message carries lead_id so a multi-request conversation can be
+   * grouped per request in the UI.
    */
   conversation_id: string
   /**
@@ -549,8 +553,9 @@ export interface AuthedLeadDetail extends LeadSummary {
    */
   quality_score?: number | null
   /**
-   * The PER-REQUEST transcript — only the messages attributed to this lead
-   * (messages.lead_id, migration 038), not the whole conversation.
+   * The FULL conversation thread (every message, all roles, chronological) — not
+   * just this request's slice. Each item carries lead_id so the UI can group a
+   * multi-request conversation per request; pre-submission turns have no lead_id.
    */
   transcript: TranscriptMessage[]
   /**

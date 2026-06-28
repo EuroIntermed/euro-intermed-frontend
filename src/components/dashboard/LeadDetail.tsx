@@ -2,7 +2,13 @@ import { Link } from 'react-router-dom'
 import { ArrowRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import {
   Table,
@@ -15,6 +21,13 @@ import {
 import { type Message } from '@/components/chat/MessageList'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
+import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
+import { HandoffCallout } from '@/components/dashboard/HandoffCallout'
+import {
+  TranscriptThread,
+  type RequestRef,
+} from '@/components/dashboard/TranscriptThread'
+import { resolveContent } from '@/lib/chat/transcript'
 import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
@@ -34,25 +47,7 @@ import type {
   LeadSibling,
   ListingDetailView,
   PublicUser,
-  TranscriptMessage,
 } from '@/lib/api'
-
-// Model messages may store text inside a base64-encoded JSON array of parts;
-// extract plain text when the content field is empty (matches the demo logic).
-function resolveContent(m: TranscriptMessage): string {
-  if (m.content) return m.content
-  if ((m.role === 'model' || m.role === 'assistant') && m.tool_calls) {
-    try {
-      const bytes = Uint8Array.from(atob(m.tool_calls), (c) => c.charCodeAt(0))
-      const json = new TextDecoder('utf-8').decode(bytes)
-      const parts: unknown[] = JSON.parse(json)
-      return parts.filter((p): p is string => typeof p === 'string').join('')
-    } catch {
-      return ''
-    }
-  }
-  return ''
-}
 
 interface FieldProps {
   label: string
@@ -89,6 +84,7 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
         <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           {t('detail.listing')}
           <ListingStatusBadge status={listing.status} />
+          {listing.confidential && <ConfidentialBadge />}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -126,10 +122,6 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
                 ? formatRON(lang, listing.target_price, t('common.none'))
                 : undefined
             }
-          />
-          <Field
-            label={t('detail.confidential')}
-            value={listing.confidential ? t('detail.yes') : t('detail.no')}
           />
         </dl>
 
@@ -343,6 +335,17 @@ export function LeadDetail({ lead, users }: Props) {
 
   const qualityScore = lead.quality_score
 
+  // This request + its siblings, so the transcript can caption per-request
+  // dividers when the conversation holds more than one request.
+  const requests: RequestRef[] = [
+    { id: lead.id, seq: lead.seq, product: lead.product_name },
+    ...(lead.sibling_requests ?? []).map((s) => ({
+      id: s.id,
+      seq: s.seq,
+      product: s.product,
+    })),
+  ]
+
   const administrators = (() => {
     const a = verification?.administrators
     if (!a) return []
@@ -389,6 +392,11 @@ export function LeadDetail({ lead, users }: Props) {
             <Badge variant="outline">{intentLabel(lead.intent)}</Badge>
           )}
           <StatusBadge status={lead.status} />
+          {lead.needs_human && (
+            <Badge variant="destructive" title={t('detail.handoffDesc')}>
+              {t('detail.handoffTitle')}
+            </Badge>
+          )}
           {qualityScore != null && (
             <Badge variant={qualityVariant(qualityScore)}>
               {t('detail.qualityScoreValue', { n: qualityScore })}
@@ -399,11 +407,27 @@ export function LeadDetail({ lead, users }: Props) {
       actions={
         <TranscriptSheet
           messages={chatMessages}
-          title={t('detail.transcriptThisRequest')}
+          title={t('detail.transcript')}
         />
       }
     >
       <StatStrip stats={stats} />
+
+      {lead.needs_human && <HandoffCallout />}
+
+      {/* Full conversation thread (promoted inline; the header action still opens
+          the focused drawer view). */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            {t('detail.sectionTranscript')}
+          </CardTitle>
+          <CardDescription>{t('detail.sectionTranscriptDesc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TranscriptThread messages={lead.transcript ?? []} requests={requests} />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* Typed request: PalletClearance listing / buyer profile, else the
