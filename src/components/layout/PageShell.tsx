@@ -30,6 +30,13 @@ interface Props {
   titleBadges?: ReactNode
   /** Right-aligned header actions (e.g. the transcript trigger). */
   actions?: ReactNode
+  /** Right-aligned actions in the sticky top bar (global, e.g. Docs / Help). */
+  topActions?: ReactNode
+  /**
+   * Skip the default title row (still used for breadcrumbs/SEO). Detail screens
+   * set this when they render their own hero via <DetailHeader>.
+   */
+  hideTitle?: boolean
   children: ReactNode
 }
 
@@ -46,6 +53,8 @@ export function PageShell({
   description,
   titleBadges,
   actions,
+  topActions,
+  hideTitle,
   children,
 }: Props) {
   const { t } = useT()
@@ -85,27 +94,34 @@ export function PageShell({
             })}
           </BreadcrumbList>
         </Breadcrumb>
+        {topActions && (
+          <div className="ml-auto flex items-center gap-2">{topActions}</div>
+        )}
       </header>
 
       <div className="mx-auto w-full min-w-0 max-w-7xl px-4 py-6 md:px-6">
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="truncate text-2xl font-semibold tracking-tight">
-                {title}
-              </h1>
-              {titleBadges}
+        {!hideTitle && (
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-2xl font-semibold tracking-tight">
+                  {title}
+                </h1>
+                {titleBadges}
+              </div>
+              {description && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {description}
+                </p>
+              )}
             </div>
-            {description && (
-              <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            {actions && (
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {actions}
+              </div>
             )}
           </div>
-          {actions && (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {actions}
-            </div>
-          )}
-        </div>
+        )}
 
         {children}
       </div>

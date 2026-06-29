@@ -137,14 +137,14 @@ export function OverviewPage() {
               const Icon = l.icon
               return (
                 <Link key={l.to} to={l.to} className="group">
-                  <Card className="h-full transition-colors hover:border-primary/40 hover:bg-accent/40">
+                  <Card className="h-full transition-colors hover:border-brand/40 hover:bg-brand-soft/40">
                     <CardHeader>
                       <div className="mb-1 flex items-center gap-3">
-                        <span className="flex size-9 items-center justify-center rounded-lg border bg-background text-muted-foreground transition-colors group-hover:text-foreground">
+                        <span className="flex size-9 items-center justify-center rounded-lg bg-brand-soft text-brand">
                           <Icon className="h-4 w-4" />
                         </span>
                         <CardTitle className="flex-1">{t(l.labelKey)}</CardTitle>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-brand" />
                       </div>
                       <CardDescription>{t(l.descKey)}</CardDescription>
                     </CardHeader>

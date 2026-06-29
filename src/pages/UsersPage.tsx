@@ -3,13 +3,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, MoreHorizontal, Plus, ShieldAlert } from 'lucide-react'
+import { Loader2, MoreHorizontal, Plus, ShieldAlert, UserCog } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Card,
   CardContent,
@@ -56,6 +55,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageShell } from '@/components/layout/PageShell'
+import { QueryState } from '@/components/dashboard/QueryState'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { StatePill } from '@/components/dashboard/StatePill'
 import { useAuth } from '@/auth/useAuth'
 import {
   createUser,
@@ -435,13 +437,27 @@ export function UsersPage() {
       actions={isAdmin ? <NewUserDialog /> : undefined}
     >
       {!isAdmin ? (
-        <p className="text-sm text-muted-foreground">{t('users.notAdmin')}</p>
-      ) : isLoading ? (
-        <Skeleton className="h-48 w-full rounded-lg" />
-      ) : error ? (
-        <p className="text-sm text-destructive">{t('users.loadError')}</p>
+        <EmptyState
+          icon={ShieldAlert}
+          title={t('users.notAdmin')}
+        />
       ) : (
         <div className="flex flex-col gap-6">
+          <QueryState
+            isLoading={isLoading}
+            error={error}
+            isEmpty={(data ?? []).length === 0}
+            skeletonRows={6}
+            errorMessage={t('users.loadError')}
+            empty={
+              <EmptyState
+                icon={UserCog}
+                title={t('users.emptyTitle')}
+                description={t('users.empty')}
+                action={<NewUserDialog />}
+              />
+            }
+          >
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
@@ -454,7 +470,7 @@ export function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data ?? []).map((u) => {
+                {(data ?? []).map((u: PublicUser) => {
                   const isSelf = u.id === me?.id
                   return (
                     <TableRow key={u.id}>
@@ -473,9 +489,9 @@ export function UsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={u.active ? 'default' : 'outline'}>
+                        <StatePill tone={u.active ? 'success' : 'neutral'}>
                           {u.active ? t('users.active') : t('users.inactive')}
-                        </Badge>
+                        </StatePill>
                       </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
@@ -507,19 +523,10 @@ export function UsersPage() {
                     </TableRow>
                   )
                 })}
-                {(data ?? []).length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="text-center text-sm text-muted-foreground"
-                    >
-                      {t('users.empty')}
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           </div>
+          </QueryState>
 
           <GdprErasureCard />
         </div>

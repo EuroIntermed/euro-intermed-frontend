@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Workflow } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,7 +21,9 @@ import {
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
 import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
-import { HandoffCallout } from '@/components/dashboard/HandoffCallout'
+import { Banner } from '@/components/dashboard/Banner'
+import { SectionCard } from '@/components/dashboard/SectionCard'
+import { DetailHeader, MetaField } from '@/components/dashboard/DetailHeader'
 import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
 import { LeadActivity } from '@/components/dashboard/LeadActivity'
 import {
@@ -32,7 +34,6 @@ import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
 import { PageShell } from '@/components/layout/PageShell'
-import { StatStrip, type Stat } from '@/components/dashboard/StatStrip'
 import {
   useT,
   useEnums,
@@ -346,58 +347,77 @@ export function LeadDetail({ lead, users }: Props) {
   })()
 
   const title = lead.company_name || t('detail.fallbackTitle')
-  // Glance bar: created + location. The offer value lives in its own card below,
-  // so it isn't repeated here.
-  const stats: Stat[] = [
-    {
-      label: t('pipeline.colCreated'),
-      value: formatDate(lang, lead.created_at),
-    },
-  ]
-  if (lead.delivery_location) {
-    stats.push({
-      label: t('pipeline.colLocation'),
-      value: lead.delivery_location,
-    })
-  }
 
   return (
     <PageShell
+      hideTitle
       breadcrumbs={[
         { label: t('nav.pipeline'), to: '/dashboard/pipeline' },
         { label: title },
       ]}
       title={title}
-      titleBadges={
-        <>
-          {lead.seq != null && (
-            <Badge variant="outline" className="tabular-nums">
-              {t('detail.seqHandle', { n: lead.seq })}
-            </Badge>
-          )}
-          {lead.vertical && (
-            <Badge variant="secondary">{verticalLabel(lead.vertical)}</Badge>
-          )}
-          {lead.intent && (
-            <Badge variant="outline">{intentLabel(lead.intent)}</Badge>
-          )}
-          <StatusBadge status={lead.status} />
-          {lead.needs_human && (
-            <Badge variant="destructive" title={t('detail.handoffDesc')}>
-              {t('detail.handoffTitle')}
-            </Badge>
-          )}
-          {qualityScore != null && (
-            <Badge variant={qualityVariant(qualityScore)}>
-              {t('detail.qualityScoreValue', { n: qualityScore })}
-            </Badge>
-          )}
-        </>
-      }
     >
-      <StatStrip stats={stats} />
+      <DetailHeader
+        className="mb-6"
+        icon={Workflow}
+        eyebrow={t('detail.eyebrowLead')}
+        title={title}
+        badges={
+          <>
+            {lead.seq != null && (
+              <Badge variant="outline" className="tabular-nums">
+                {t('detail.seqHandle', { n: lead.seq })}
+              </Badge>
+            )}
+            {lead.vertical && (
+              <Badge variant="secondary">{verticalLabel(lead.vertical)}</Badge>
+            )}
+            {lead.intent && (
+              <Badge variant="outline">{intentLabel(lead.intent)}</Badge>
+            )}
+            <StatusBadge status={lead.status} />
+            {qualityScore != null && (
+              <Badge variant={qualityVariant(qualityScore)}>
+                {t('detail.qualityScoreValue', { n: qualityScore })}
+              </Badge>
+            )}
+          </>
+        }
+        meta={
+          <>
+            <MetaField label={t('detail.metaCreated')}>
+              {formatDate(lang, lead.created_at)}
+            </MetaField>
+            <MetaField label={t('detail.metaStatus')}>
+              <StatusBadge status={lead.status} />
+            </MetaField>
+            {lead.vertical && (
+              <MetaField label={t('detail.metaVertical')}>
+                {verticalLabel(lead.vertical)}
+              </MetaField>
+            )}
+            {lead.delivery_location && (
+              <MetaField label={t('detail.metaLocation')}>
+                {lead.delivery_location}
+              </MetaField>
+            )}
+            {qualityScore != null && (
+              <MetaField label={t('detail.metaQuality')}>
+                {t('detail.qualityScoreValue', { n: qualityScore })}
+              </MetaField>
+            )}
+          </>
+        }
+      />
 
-      {lead.needs_human && <HandoffCallout />}
+      {lead.needs_human && (
+        <Banner
+          className="mb-4"
+          tone="danger"
+          title={t('detail.handoffTitle')}
+          description={t('detail.handoffDesc')}
+        />
+      )}
 
       {/* Two columns: the conversation + the request fill the wide main column;
           actions and reference cards stack in a narrower sidebar so short cards
@@ -526,13 +546,7 @@ export function LeadDetail({ lead, users }: Props) {
           <LeadActivity leadId={lead.id} />
 
           {company && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                {t('detail.company')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title={t('detail.company')}>
               <dl className="flex flex-col gap-3">
                 <Field label={t('detail.company')} value={company.name} />
                 <Field
@@ -565,7 +579,18 @@ export function LeadDetail({ lead, users }: Props) {
               <Separator className="my-4" />
 
               {verification ? (
-                <dl className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
+                  <Banner
+                    tone="success"
+                    title={t('detail.verifiedTitle')}
+                    description={
+                      verification.checked_at
+                        ? t('detail.verifiedDesc', {
+                            date: formatDateTime(lang, verification.checked_at),
+                          })
+                        : undefined
+                    }
+                  />
                   {administrators.length > 0 && (
                     <div>
                       <dt className="text-xs text-muted-foreground">
@@ -576,33 +601,20 @@ export function LeadDetail({ lead, users }: Props) {
                       </dd>
                     </div>
                   )}
-                  <Field
-                    label={t('detail.checkedAt')}
-                    value={
-                      verification.checked_at
-                        ? formatDateTime(lang, verification.checked_at)
-                        : undefined
-                    }
-                  />
-                </dl>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t('detail.noVerification')}
-                </p>
+                <Banner
+                  tone="warning"
+                  title={t('detail.unverifiedTitle')}
+                  description={t('detail.unverifiedDesc')}
+                />
               )}
-            </CardContent>
-          </Card>
+          </SectionCard>
         )}
 
         {/* Contact */}
         {(contact || lead.phone || lead.email) && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                {t('detail.contact')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <SectionCard title={t('detail.contact')}>
               <dl className="flex flex-col gap-3">
                 <Field label={t('detail.contactName')} value={contact?.name} />
                 <Field
@@ -614,8 +626,7 @@ export function LeadDetail({ lead, users }: Props) {
                   value={contact?.email || lead.email}
                 />
               </dl>
-            </CardContent>
-          </Card>
+          </SectionCard>
         )}
 
         </div>

@@ -82,7 +82,7 @@ export function EmbedCode() {
       </div>
 
       <div className="relative mt-3">
-        <pre className="whitespace-pre-wrap break-all rounded-lg bg-muted p-4 pr-10 text-xs leading-relaxed">
+        <pre className="whitespace-pre-wrap break-all rounded-lg border bg-muted p-4 pr-10 font-mono text-xs leading-relaxed">
           {code}
         </pre>
         <Button
@@ -93,7 +93,7 @@ export function EmbedCode() {
           aria-label={copied ? t('embed.copied') : t('embed.copy')}
         >
           {copied ? (
-            <Check className="h-3.5 w-3.5 text-green-500" />
+            <Check className="h-3.5 w-3.5 text-success" />
           ) : (
             <Copy className="h-3.5 w-3.5" />
           )}

@@ -40,7 +40,7 @@ export function ExtractionStatus({ extracted }: Props) {
             return (
               <li key={f.key} className="flex items-center gap-2">
                 {done ? (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
                 ) : (
                   <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
                 )}

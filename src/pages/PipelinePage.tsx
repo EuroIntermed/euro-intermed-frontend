@@ -1,14 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-} from '@/components/ui/pagination'
+import { Workflow } from 'lucide-react'
 import { PageShell } from '@/components/layout/PageShell'
 import { LeadTable } from '@/components/dashboard/LeadTable'
 import {
@@ -16,9 +8,11 @@ import {
   UNASSIGNED,
   type FilterState,
 } from '@/components/dashboard/LeadFilterBar'
+import { QueryState } from '@/components/dashboard/QueryState'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { ListFooter } from '@/components/dashboard/ListFooter'
 import { useLeadsList, useUsers } from '@/hooks/useDashboard'
 import { useT } from '@/lib/i18n'
-import { cn } from '@/lib/utils'
 import type { LeadFilters, LeadSortKey, SortDir } from '@/lib/api'
 
 const PAGE_SIZE = 25
@@ -154,105 +148,41 @@ export function PipelinePage() {
           onChange={onFilterChange}
         />
 
-        {isLoading && (
-          <div className="rounded-lg border p-4 flex flex-col gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-9 w-full" />
-            ))}
-          </div>
-        )}
-
-        {error && !isLoading && (
-          <div className="flex flex-col items-center gap-3 py-16">
-            <p className="text-sm text-destructive">
-              {t('pipeline.loadError')}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              {t('common.retry')}
-            </Button>
-          </div>
-        )}
-
-        {data && !isLoading && !error && (
-          <div>
-            {data.data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-sm gap-2">
-                <span>{t('pipeline.empty')}</span>
-              </div>
-            ) : (
-              <LeadTable
-                leads={data.data}
-                users={users}
-                sort={sort}
-                dir={dir}
-                onSort={onSort}
-              />
+        <QueryState
+          isLoading={isLoading}
+          error={error}
+          isEmpty={data?.data.length === 0}
+          errorMessage={t('pipeline.loadError')}
+          onRetry={refetch}
+          empty={
+            <EmptyState
+              icon={Workflow}
+              title={t('pipeline.emptyTitle')}
+              description={t('pipeline.empty')}
+            />
+          }
+        >
+          <LeadTable
+            leads={data?.data ?? []}
+            users={users}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
+          />
+          <ListFooter
+            countLabel={t(
+              total === 1 ? 'pipeline.countOne' : 'pipeline.countOther',
+              { n: total },
             )}
-
-            <div className="flex items-center justify-between mt-4 gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {t(total === 1 ? 'pipeline.countOne' : 'pipeline.countOther', {
-                  n: total,
-                })}
-              </span>
-              {total > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {t('pipeline.pageOf', { x: page, y: pageCount })}
-                  </span>
-                  <Pagination className="mx-0 w-auto">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationLink
-                          href="#"
-                          size="default"
-                          aria-label={t('pipeline.prev')}
-                          aria-disabled={!hasPrev || isFetching}
-                          className={cn(
-                            'gap-1 px-2.5',
-                            (!hasPrev || isFetching) &&
-                              'pointer-events-none opacity-50',
-                          )}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            if (hasPrev && !isFetching) goToPage(page - 1)
-                          }}
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span className="hidden sm:block">
-                            {t('pipeline.prev')}
-                          </span>
-                        </PaginationLink>
-                      </PaginationItem>
-                      <PaginationItem>
-                        <PaginationLink
-                          href="#"
-                          size="default"
-                          aria-label={t('pipeline.next')}
-                          aria-disabled={!hasNext || isFetching}
-                          className={cn(
-                            'gap-1 px-2.5',
-                            (!hasNext || isFetching) &&
-                              'pointer-events-none opacity-50',
-                          )}
-                          onClick={(e) => {
-                            e.preventDefault()
-                            if (hasNext && !isFetching) goToPage(page + 1)
-                          }}
-                        >
-                          <span className="hidden sm:block">
-                            {t('pipeline.next')}
-                          </span>
-                          <ChevronRight className="h-4 w-4" />
-                        </PaginationLink>
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+            page={page}
+            pageCount={pageCount}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            busy={isFetching}
+            onPrev={() => goToPage(page - 1)}
+            onNext={() => goToPage(page + 1)}
+          />
+        </QueryState>
       </div>
     </PageShell>
   )

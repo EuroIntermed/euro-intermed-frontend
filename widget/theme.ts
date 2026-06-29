@@ -39,51 +39,54 @@ export interface WidgetTheme {
   error: string
 }
 
+// Emerald brand palette, tuned to mirror the dashboard tokens. Hex values are
+// the sanctioned exception here (the widget ships with no CSS variables); the
+// dashboard itself must still use the semantic tokens in index.css.
 const LIGHT: WidgetTheme = {
   scheme: 'light',
   panelBg: '#ffffff',
-  text: '#111827',
-  muted: '#6b7280',
-  border: '#e5e7eb',
-  headerBg: '#111827',
+  text: '#0f172a',
+  muted: '#64748b',
+  border: '#e6e8ec',
+  headerBg: '#047857', // emerald-700 — white text passes AA
   headerText: '#ffffff',
-  headerSub: '#9ca3af',
-  assistantBubbleBg: '#f3f4f6',
-  assistantText: '#111827',
-  userBubbleBg: '#111827',
+  headerSub: '#bbf7d0', // emerald-200
+  assistantBubbleBg: '#f1f5f9',
+  assistantText: '#0f172a',
+  userBubbleBg: '#047857',
   userText: '#ffffff',
   inputBg: '#ffffff',
-  inputText: '#111827',
-  inputBorder: '#d1d5db',
-  placeholder: '#9ca3af',
-  accent: '#111827',
+  inputText: '#0f172a',
+  inputBorder: '#d4d8de',
+  placeholder: '#94a3b8',
+  accent: '#047857',
   accentText: '#ffffff',
-  tileBg: '#f3f4f6',
-  overlay: 'rgba(0,0,0,0.32)',
-  shadow: '0 12px 40px rgba(0,0,0,0.18)',
+  tileBg: '#ecfdf5', // emerald-50
+  overlay: 'rgba(2,6,23,0.32)',
+  shadow: '0 12px 40px rgba(2,6,23,0.16)',
   error: '#dc2626',
 }
 
 const DARK: WidgetTheme = {
   scheme: 'dark',
-  panelBg: '#0f172a',
-  text: '#e2e8f0',
-  muted: '#94a3b8',
-  border: '#334155',
-  headerBg: '#1e293b',
-  headerText: '#f8fafc',
-  headerSub: '#94a3b8',
-  assistantBubbleBg: '#1e293b',
-  assistantText: '#e2e8f0',
-  userBubbleBg: '#2563eb',
+  panelBg: '#0c1411', // near-black with a faint emerald cast
+  text: '#e7efe9',
+  muted: '#9aa9a1',
+  border: '#23302a',
+  headerBg: '#0a3a2b', // deep emerald
+  headerText: '#ecfdf5',
+  headerSub: '#6ee7b7', // emerald-300
+  assistantBubbleBg: '#18221d',
+  assistantText: '#e7efe9',
+  userBubbleBg: '#059669', // emerald-600
   userText: '#ffffff',
-  inputBg: '#1e293b',
+  inputBg: '#141d18',
   inputText: '#f1f5f9',
-  inputBorder: '#475569',
-  placeholder: '#94a3b8',
-  accent: '#2563eb',
-  accentText: '#ffffff',
-  tileBg: '#0b1220',
+  inputBorder: '#2b3832',
+  placeholder: '#9aa9a1',
+  accent: '#34d399', // emerald-400 — dark text on top
+  accentText: '#04231a',
+  tileBg: '#11231b',
   overlay: 'rgba(0,0,0,0.5)',
   shadow: '0 12px 40px rgba(0,0,0,0.55)',
   error: '#f87171',

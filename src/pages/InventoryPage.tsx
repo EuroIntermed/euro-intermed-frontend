@@ -1,23 +1,17 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-} from '@/components/ui/pagination'
+import { Boxes } from 'lucide-react'
 import { PageShell } from '@/components/layout/PageShell'
 import { InventoryTable } from '@/components/dashboard/InventoryTable'
 import {
   InventoryFilterBar,
   type InventoryFilterState,
 } from '@/components/dashboard/InventoryFilterBar'
+import { QueryState } from '@/components/dashboard/QueryState'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { ListFooter } from '@/components/dashboard/ListFooter'
 import { useListings } from '@/hooks/useDashboard'
 import { useT } from '@/lib/i18n'
-import { cn } from '@/lib/utils'
 import type { ListingFilters } from '@/lib/api'
 
 const PAGE_SIZE = 25
@@ -127,94 +121,33 @@ export function InventoryPage() {
       <div className="flex flex-col gap-6">
         <InventoryFilterBar value={filters} onChange={onFilterChange} />
 
-        {isLoading && (
-          <div className="rounded-lg border p-4 flex flex-col gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-9 w-full" />
-            ))}
-          </div>
-        )}
-
-        {error && !isLoading && (
-          <div className="flex flex-col items-center gap-3 py-16">
-            <p className="text-sm text-destructive">
-              {t('inventory.loadError')}
-            </p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              {t('common.retry')}
-            </Button>
-          </div>
-        )}
-
-        {data && !isLoading && !error && (
-          <div>
-            {data.data.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-sm gap-2">
-                <span>{t('inventory.empty')}</span>
-              </div>
-            ) : (
-              <InventoryTable listings={data.data} />
+        <QueryState
+          isLoading={isLoading}
+          error={error}
+          isEmpty={data?.data.length === 0}
+          errorMessage={t('inventory.loadError')}
+          onRetry={refetch}
+          empty={
+            <EmptyState
+              icon={Boxes}
+              title={t('inventory.emptyTitle')}
+              description={t('inventory.empty')}
+            />
+          }
+        >
+          <InventoryTable listings={data?.data ?? []} />
+          <ListFooter
+            countLabel={t(
+              count === 1 ? 'inventory.countOne' : 'inventory.countOther',
+              { n: count },
             )}
-
-            <div className="flex items-center justify-between mt-4 gap-2">
-              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                {t(count === 1 ? 'inventory.countOne' : 'inventory.countOther', {
-                  n: count,
-                })}
-              </span>
-              {(hasPrev || hasNext) && (
-                <Pagination className="mx-0 w-auto">
-                  <PaginationContent>
-                    <PaginationItem>
-                      <PaginationLink
-                        href="#"
-                        size="default"
-                        aria-label={t('inventory.prev')}
-                        aria-disabled={!hasPrev || isFetching}
-                        className={cn(
-                          'gap-1 px-2.5',
-                          (!hasPrev || isFetching) &&
-                            'pointer-events-none opacity-50',
-                        )}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          if (hasPrev && !isFetching) goPrev()
-                        }}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                        <span className="hidden sm:block">
-                          {t('inventory.prev')}
-                        </span>
-                      </PaginationLink>
-                    </PaginationItem>
-                    <PaginationItem>
-                      <PaginationLink
-                        href="#"
-                        size="default"
-                        aria-label={t('inventory.next')}
-                        aria-disabled={!hasNext || isFetching}
-                        className={cn(
-                          'gap-1 px-2.5',
-                          (!hasNext || isFetching) &&
-                            'pointer-events-none opacity-50',
-                        )}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          if (hasNext && !isFetching) goNext()
-                        }}
-                      >
-                        <span className="hidden sm:block">
-                          {t('inventory.next')}
-                        </span>
-                        <ChevronRight className="h-4 w-4" />
-                      </PaginationLink>
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
-              )}
-            </div>
-          </div>
-        )}
+            hasPrev={hasPrev}
+            hasNext={hasNext}
+            busy={isFetching}
+            onPrev={goPrev}
+            onNext={goNext}
+          />
+        </QueryState>
       </div>
     </PageShell>
   )

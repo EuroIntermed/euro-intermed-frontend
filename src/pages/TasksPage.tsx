@@ -4,9 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, CheckCircle2, ListTodo, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -24,6 +22,9 @@ import {
 } from '@/components/ui/table'
 import { PageShell } from '@/components/layout/PageShell'
 import { NewTaskDialog } from '@/components/dashboard/NewTaskDialog'
+import { QueryState } from '@/components/dashboard/QueryState'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { StatePill } from '@/components/dashboard/StatePill'
 import { useTasks, useUsers } from '@/hooks/useDashboard'
 import { useAuth } from '@/auth/useAuth'
 import { useT, formatDateTime } from '@/lib/i18n'
@@ -127,33 +128,25 @@ export function TasksPage() {
           </div>
         </div>
 
-        {isLoading && (
-          <div className="rounded-lg border p-4 flex flex-col gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-9 w-full" />
-            ))}
-          </div>
-        )}
-
-        {error && !isLoading && (
-          <div className="flex flex-col items-center gap-3 py-16">
-            <p className="text-sm text-destructive">{t('tasks.loadError')}</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              {t('common.retry')}
-            </Button>
-          </div>
-        )}
-
-        {tasks && !isLoading && !error && (
+        <QueryState
+          isLoading={isLoading}
+          error={error}
+          isEmpty={list.length === 0}
+          skeletonRows={6}
+          errorMessage={t('tasks.loadError')}
+          onRetry={refetch}
+          empty={
+            <EmptyState
+              icon={ListTodo}
+              title={t('tasks.emptyTitle')}
+              description={t('tasks.empty')}
+              action={<NewTaskDialog />}
+            />
+          }
+        >
           <>
-            {list.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground text-sm gap-3">
-                <ListTodo className="h-8 w-8 opacity-50" />
-                <span>{t('tasks.empty')}</span>
-              </div>
-            ) : (
-              <div className="rounded-lg border overflow-hidden">
-                <div className="overflow-x-auto">
+            <div className="rounded-lg border overflow-hidden">
+              <div className="overflow-x-auto">
                   <Table className="min-w-[860px]">
                     <TableHeader>
                       <TableRow>
@@ -207,11 +200,11 @@ export function TasksPage() {
                                 : t('tasks.noDue')}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={done ? 'secondary' : 'default'}>
+                              <StatePill tone={done ? 'success' : 'info'}>
                                 {done
                                   ? t('tasks.statusDone')
                                   : t('tasks.statusOpen')}
-                              </Badge>
+                              </StatePill>
                             </TableCell>
                             <TableCell className="text-right">
                               <Button
@@ -240,15 +233,14 @@ export function TasksPage() {
                   </Table>
                 </div>
               </div>
-            )}
 
-            <span className="text-xs text-muted-foreground">
-              {t(list.length === 1 ? 'tasks.countOne' : 'tasks.countOther', {
-                n: list.length,
-              })}
-            </span>
+              <span className="text-xs text-muted-foreground">
+                {t(list.length === 1 ? 'tasks.countOne' : 'tasks.countOther', {
+                  n: list.length,
+                })}
+              </span>
           </>
-        )}
+        </QueryState>
       </div>
     </PageShell>
   )

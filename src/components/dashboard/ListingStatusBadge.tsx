@@ -1,24 +1,21 @@
-import { Badge } from '@/components/ui/badge'
+import { StatePill, type Tone } from '@/components/dashboard/StatePill'
 import { useEnums } from '@/lib/i18n'
 
-/** Maps each listing status to a shadcn Badge variant (parallels StatusBadge). */
-const LISTING_STATUS_VARIANT: Record<
-  string,
-  'default' | 'secondary' | 'destructive' | 'outline'
-> = {
-  active: 'default',
-  reserved: 'secondary',
-  sold: 'secondary',
-  expired: 'destructive',
-  withdrawn: 'outline',
+/** Maps each listing status to a semantic tone (parallels StatusBadge). */
+const LISTING_STATUS_TONE: Record<string, Tone> = {
+  active: 'success',
+  reserved: 'warning',
+  sold: 'brand',
+  expired: 'danger',
+  withdrawn: 'neutral',
 }
 
 /** Localized colored badge for a PalletClearance listing status. */
 export function ListingStatusBadge({ status }: { status: string }) {
   const { listingStatusLabel } = useEnums()
   return (
-    <Badge variant={LISTING_STATUS_VARIANT[status] ?? 'secondary'}>
+    <StatePill tone={LISTING_STATUS_TONE[status] ?? 'neutral'}>
       {listingStatusLabel(status)}
-    </Badge>
+    </StatePill>
   )
 }

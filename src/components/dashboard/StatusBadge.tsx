@@ -1,28 +1,26 @@
-import { Badge } from '@/components/ui/badge'
+import { StatePill, type Tone } from '@/components/dashboard/StatePill'
 import { useEnums } from '@/lib/i18n'
 
-const STATUS_VARIANT: Record<
-  string,
-  'default' | 'secondary' | 'destructive' | 'outline'
-> = {
-  draft: 'outline',
-  new: 'default',
-  qualifying: 'secondary',
-  needs_human: 'destructive',
-  qualified: 'secondary',
-  offer_requested: 'outline',
-  offer_sent: 'outline',
-  negotiation: 'outline',
-  won: 'default',
-  lost: 'destructive',
-  cancelled: 'outline',
+/** Maps each lead status to a semantic tone (soft colour-coded pill). */
+const STATUS_TONE: Record<string, Tone> = {
+  draft: 'neutral',
+  new: 'brand',
+  qualifying: 'info',
+  needs_human: 'danger',
+  qualified: 'info',
+  offer_requested: 'warning',
+  offer_sent: 'warning',
+  negotiation: 'warning',
+  won: 'success',
+  lost: 'danger',
+  cancelled: 'neutral',
 }
 
 export function StatusBadge({ status }: { status: string }) {
   const { statusLabel } = useEnums()
   return (
-    <Badge variant={STATUS_VARIANT[status] ?? 'secondary'}>
+    <StatePill tone={STATUS_TONE[status] ?? 'neutral'}>
       {statusLabel(status)}
-    </Badge>
+    </StatePill>
   )
 }

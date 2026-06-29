@@ -1,14 +1,8 @@
 import { useState } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { Code2, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 import { EmbedCode } from '@/components/dashboard/EmbedCode'
+import { SectionCard } from '@/components/dashboard/SectionCard'
 import { PageShell } from '@/components/layout/PageShell'
 import { useT } from '@/lib/i18n'
 import { WidgetApp } from '../../widget/WidgetApp'
@@ -31,32 +25,29 @@ export function WidgetPage() {
     >
       <div className="flex flex-col gap-6">
         {/* Embed snippet */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('widget.embedHeading')}</CardTitle>
-            <CardDescription>{t('widget.intro')}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-sm text-muted-foreground">
-              {t('widget.embedNote')}
-            </p>
-            <EmbedCode />
-          </CardContent>
-        </Card>
+        <SectionCard
+          icon={Code2}
+          title={t('widget.embedHeading')}
+          description={t('widget.intro')}
+          contentClassName="flex flex-col gap-4"
+        >
+          <p className="text-sm text-muted-foreground">
+            {t('widget.embedNote')}
+          </p>
+          <EmbedCode />
+        </SectionCard>
 
         {/* Live test */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('widget.testHeading')}</CardTitle>
-            <CardDescription>{t('widget.testNote')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => setOpen(true)} disabled={open}>
-              <MessageCircle className="mr-1.5 h-4 w-4" />
-              {t('widget.open')}
-            </Button>
-          </CardContent>
-        </Card>
+        <SectionCard
+          icon={MessageCircle}
+          title={t('widget.testHeading')}
+          description={t('widget.testNote')}
+        >
+          <Button onClick={() => setOpen(true)} disabled={open}>
+            <MessageCircle className="mr-1.5 h-4 w-4" />
+            {t('widget.open')}
+          </Button>
+        </SectionCard>
       </div>
 
       {/* Floating chat — mirrors the embedded widget's button/panel pattern.

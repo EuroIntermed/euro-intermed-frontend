@@ -114,10 +114,15 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg">
               <Link to="/dashboard">
-                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold">
+                <span className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-sm">
                   EI
                 </span>
-                <span className="font-semibold">Euro Intermed</span>
+                <div className="grid flex-1 text-left leading-tight">
+                  <span className="truncate font-semibold">Euro Intermed</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    B2B Platform
+                  </span>
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
