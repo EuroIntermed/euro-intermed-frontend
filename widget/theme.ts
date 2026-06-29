@@ -3,12 +3,11 @@ import { useSyncExternalStore } from 'react'
 /**
  * Self-contained theming for the embeddable widget. The widget ships as an
  * isolated, inline-styled bundle (no Tailwind / host CSS), so it carries its own
- * light + dark palettes here instead of relying on CSS variables.
+ * palette here instead of relying on CSS variables.
  *
- * Dark mode is resolved from BOTH signals a host might use:
- *   - a `.dark` class on <html> (Tailwind / next-themes / our own dashboard), and
- *   - the OS `prefers-color-scheme: dark` media query (most third-party sites).
- * The embed can also force a mode via `init({ theme: 'light' | 'dark' })`.
+ * The widget is LIGHT-ONLY: it always renders the light palette and never
+ * follows the host's `.dark` class or `prefers-color-scheme`. The `theme` embed
+ * option is still accepted for API compatibility but has no effect.
  */
 
 export type ThemePref = 'light' | 'dark' | 'auto'
@@ -67,85 +66,13 @@ const LIGHT: WidgetTheme = {
   error: '#dc2626',
 }
 
-const DARK: WidgetTheme = {
-  scheme: 'dark',
-  panelBg: '#0c1411', // near-black with a faint emerald cast
-  text: '#e7efe9',
-  muted: '#9aa9a1',
-  border: '#23302a',
-  headerBg: '#0a3a2b', // deep emerald
-  headerText: '#ecfdf5',
-  headerSub: '#6ee7b7', // emerald-300
-  assistantBubbleBg: '#18221d',
-  assistantText: '#e7efe9',
-  userBubbleBg: '#059669', // emerald-600
-  userText: '#ffffff',
-  inputBg: '#141d18',
-  inputText: '#f1f5f9',
-  inputBorder: '#2b3832',
-  placeholder: '#9aa9a1',
-  accent: '#34d399', // emerald-400 — dark text on top
-  accentText: '#04231a',
-  tileBg: '#11231b',
-  overlay: 'rgba(0,0,0,0.5)',
-  shadow: '0 12px 40px rgba(0,0,0,0.55)',
-  error: '#f87171',
-}
-
-function prefersDark(): boolean {
-  if (
-    typeof document !== 'undefined' &&
-    document.documentElement.classList.contains('dark')
-  ) {
-    return true
-  }
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  }
-  return false
-}
-
-const noopSubscribe = () => () => {}
-
 /**
- * Subscribe to host theme changes: the `prefers-color-scheme` media query AND
- * the <html> class list (so a class-based dark-mode toggle updates the widget
- * live). Module-scoped so its identity is stable across renders.
+ * The widget is light-only by design: it always renders the LIGHT palette
+ * regardless of the host's `prefers-color-scheme` or any `theme` preference.
+ * The `pref` argument is accepted for API compatibility but ignored.
  */
-function subscribeScheme(onChange: () => void): () => void {
-  const mq =
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? window.matchMedia('(prefers-color-scheme: dark)')
-      : null
-  mq?.addEventListener('change', onChange)
-
-  let observer: MutationObserver | null = null
-  if (typeof MutationObserver !== 'undefined' && typeof document !== 'undefined') {
-    observer = new MutationObserver(onChange)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class'],
-    })
-  }
-
-  return () => {
-    mq?.removeEventListener('change', onChange)
-    observer?.disconnect()
-  }
-}
-
-/**
- * Resolve the active palette, re-rendering when the host flips theme. A fixed
- * `pref` ('light' | 'dark') short-circuits the subscription.
- */
-export function useWidgetTheme(pref: ThemePref = 'auto'): WidgetTheme {
-  const fixed = pref === 'light' || pref === 'dark'
-  const scheme = useSyncExternalStore<Scheme>(
-    fixed ? noopSubscribe : subscribeScheme,
-    () => (fixed ? (pref as Scheme) : prefersDark() ? 'dark' : 'light'),
-    () => (pref === 'dark' ? 'dark' : 'light'),
-  )
-  return scheme === 'dark' ? DARK : LIGHT
+export function useWidgetTheme(_pref: ThemePref = 'auto'): WidgetTheme {
+  return LIGHT
 }
 
 const MOBILE_QUERY = '(max-width: 480px)'

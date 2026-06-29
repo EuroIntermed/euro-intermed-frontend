@@ -23,7 +23,7 @@ interface Props {
    * detectLang() falls back to the persisted dashboard choice.
    */
   lang?: Lang
-  /** Host theme preference: 'light' | 'dark' | 'auto' (default — follows host). */
+  /** Accepted for API compatibility but ignored — the widget is light-only. */
   theme?: ThemePref
   onClose: () => void
 }

@@ -19,8 +19,8 @@ interface WidgetConfig {
    */
   lang?: Lang
   /**
-   * Color theme: 'light' | 'dark' | 'auto' (default). 'auto' follows the host's
-   * `.dark` class and `prefers-color-scheme`.
+   * Accepted for API compatibility but ignored — the widget is light-only and
+   * never follows the host's dark mode.
    */
   theme?: ThemePref
   /**
