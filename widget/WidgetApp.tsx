@@ -189,6 +189,7 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
         : t('chat.greetingAngrosist'),
     errorMessage: t('chat.networkError'),
     timeoutMessage: t('chat.streamTimeout'),
+    resetMessage: t('chat.sessionReset'),
     vertical,
     intent,
   })

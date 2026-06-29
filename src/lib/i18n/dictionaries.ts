@@ -546,6 +546,8 @@ export const ro = {
     // reasonable time — the turn was accepted but the stream is slow/stalled.
     streamTimeout:
       'Răspunsul întârzie. Lucrăm la el — încercați din nou dacă nu apare.',
+    sessionReset:
+      'Sesiunea anterioară a expirat. Am reînceput conversația — trimiteți din nou mesajul.',
     // GDPR implicit-notice consent line (shown under the input). Sending the
     // first message implies agreement; the backend records consent on creation.
     consentNotice:
@@ -1089,6 +1091,8 @@ export const en: Dict = {
     // reasonable time — the turn was accepted but the stream is slow/stalled.
     streamTimeout:
       'The reply is taking a while. We are still working on it — try again if it does not appear.',
+    sessionReset:
+      'The previous session expired. We started a new conversation — please resend your message.',
     consentNotice:
       'By continuing the conversation you agree to the processing of your data in accordance with the Privacy Policy.',
     consentPrivacyLink: 'Privacy Policy',

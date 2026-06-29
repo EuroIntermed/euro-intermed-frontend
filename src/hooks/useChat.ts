@@ -46,6 +46,12 @@ interface UseChatOptions {
    * within {@link STREAM_TIMEOUT_MS}. Falls back to `errorMessage` when omitted.
    */
   timeoutMessage?: string
+  /**
+   * Localized notice shown when a RESTORED conversation turns out to be gone
+   * server-side (deleted/erased) and we reset to a fresh one — prompts the user
+   * to resend. Falls back to `errorMessage` when omitted.
+   */
+  resetMessage?: string
   /** Flow vertical — sent on the first message only. Defaults to angrosist. */
   vertical?: ChatVertical
   /** Flow intent — sent on the first message only. Defaults to buy. */
@@ -113,6 +119,7 @@ export function useChat({
   greeting,
   errorMessage = 'A apărut o eroare. Vă rugăm încercați din nou.',
   timeoutMessage,
+  resetMessage,
   vertical = 'angrosist',
   intent = 'buy',
 }: UseChatOptions): UseChatResult {
@@ -142,6 +149,15 @@ export function useChat({
   const convIdRef = useRef<string | null>(sessionStorage.getItem(convStorageKey))
   const tokenRef = useRef<string | null>(sessionStorage.getItem(tokenStorageKey))
   const unsubscribeRef = useRef<(() => void) | null>(null)
+  // True while the conversation was RESTORED from storage and has not yet proven
+  // alive (no reply received). If the very next turn's stream fails, the stored
+  // conversation was almost certainly deleted server-side (e.g. a GDPR erasure or
+  // data reset) — so we drop it and let the next message start fresh instead of
+  // looping on a dead conversation. Cleared the moment any reply arrives, so a
+  // transient mid-chat blip never resets a healthy conversation.
+  const restoredConvRef = useRef<boolean>(
+    sessionStorage.getItem(convStorageKey) != null,
+  )
   // Mirror of messages for unmount cleanup (revoke image preview object URLs).
   const messagesRef = useRef<ChatMessage[]>(messages)
   useEffect(() => {
@@ -181,10 +197,28 @@ export function useChat({
       }
       setTyping(false)
       awaitingReplyRef.current = false
+      // A reply arrived → the conversation is alive; stop treating it as a stale
+      // restored candidate.
+      restoredConvRef.current = false
       clearStallTimer()
     },
     [clearStallTimer],
   )
+
+  // Drop a conversation that the server no longer has (deleted/erased). Clears the
+  // id + token from refs, render state and sessionStorage and tears down the dead
+  // stream, so the user's NEXT message opens a brand-new conversation.
+  const resetStaleConversation = useCallback(() => {
+    restoredConvRef.current = false
+    convIdRef.current = null
+    tokenRef.current = null
+    setConversationId(null)
+    setConversationToken(null)
+    sessionStorage.removeItem(convStorageKey)
+    sessionStorage.removeItem(tokenStorageKey)
+    unsubscribeRef.current?.()
+    unsubscribeRef.current = null
+  }, [convStorageKey, tokenStorageKey])
 
   // Opens (or re-opens after a drop) the SSE stream for this conversation. The
   // stream is the only path that delivers replies/typing. EventSource auto-
@@ -210,13 +244,25 @@ export function useChat({
             awaitingReplyRef.current = false
             clearStallTimer()
             setTyping(false)
-            // Drop the dead subscription so the next send re-opens a fresh one
-            // (the stream is idempotent + replay-buffered, so this is safe).
-            unsubscribeRef.current?.()
-            unsubscribeRef.current = null
+            // A stream failure on a RESTORED conversation that never replied means
+            // the stored conversation is gone server-side — reset it so the next
+            // message starts fresh, and tell the user to resend.
+            const stale = restoredConvRef.current
+            if (stale) {
+              resetStaleConversation()
+            } else {
+              // Drop the dead subscription so the next send re-opens a fresh one
+              // (the stream is idempotent + replay-buffered, so this is safe).
+              unsubscribeRef.current?.()
+              unsubscribeRef.current = null
+            }
             setMessages((prev) => [
               ...prev,
-              { id: nextId('a'), role: 'assistant', content: errorMessage },
+              {
+                id: nextId('a'),
+                role: 'assistant',
+                content: stale ? (resetMessage ?? errorMessage) : errorMessage,
+              },
             ])
           },
         },
@@ -227,7 +273,7 @@ export function useChat({
         },
       )
     },
-    [appendAssistant, clearStallTimer, errorMessage],
+    [appendAssistant, clearStallTimer, errorMessage, resetMessage, resetStaleConversation],
   )
 
   const send = useCallback(
@@ -250,12 +296,18 @@ export function useChat({
         if (turn !== turnSeqRef.current || !awaitingReplyRef.current) return
         awaitingReplyRef.current = false
         setTyping(false)
+        // A restored conversation that never replied is treated as stale (deleted
+        // server-side): reset it so the next message starts fresh.
+        const stale = restoredConvRef.current
+        if (stale) resetStaleConversation()
         setMessages((prev) => [
           ...prev,
           {
             id: nextId('a'),
             role: 'assistant',
-            content: timeoutMessage ?? errorMessage,
+            content: stale
+              ? (resetMessage ?? errorMessage)
+              : (timeoutMessage ?? errorMessage),
           },
         ])
       }, STREAM_TIMEOUT_MS)
@@ -308,6 +360,8 @@ export function useChat({
       clearStallTimer,
       errorMessage,
       timeoutMessage,
+      resetMessage,
+      resetStaleConversation,
       vertical,
       intent,
     ],
