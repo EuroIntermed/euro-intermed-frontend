@@ -10,7 +10,16 @@ export interface AuthContextValue {
    * that would otherwise 403 for staff; the backend stays the real gate.
    */
   isAdmin: boolean
-  login: (email: string, password: string) => Promise<void>
+  /**
+   * Step 1 of passwordless sign-in: ask the backend to email a 6-digit code.
+   * Resolves on the neutral `202` ack (never reveals whether the account exists).
+   */
+  requestCode: (email: string) => Promise<void>
+  /**
+   * Step 2 of passwordless sign-in: exchange the emailed code for a session.
+   * Stores the token + user and updates auth state on success (throws otherwise).
+   */
+  verifyCode: (email: string, code: string) => Promise<void>
   logout: () => void
 }
 

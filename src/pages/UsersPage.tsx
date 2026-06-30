@@ -90,7 +90,6 @@ interface CreateForm {
   name: string
   email: string
   role: CreateRole
-  password: string
 }
 
 function NewUserDialog() {
@@ -104,14 +103,13 @@ function NewUserDialog() {
         name: z.string().trim().min(1, t('users.nameRequired')).max(200),
         email: z.string().trim().email(t('users.emailInvalid')),
         role: z.enum(['staff', 'admin', 'admin_global']),
-        password: z.string().min(8, t('users.passwordMin')).max(200),
       }),
     [t],
   )
 
   const form = useForm<CreateForm>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', email: '', role: 'staff', password: '' },
+    defaultValues: { name: '', email: '', role: 'staff' },
   })
 
   const mutation = useMutation({
@@ -147,7 +145,6 @@ function NewUserDialog() {
                 name: v.name.trim(),
                 email: v.email.trim(),
                 role: v.role,
-                password: v.password,
               }),
             )}
             className="flex flex-col gap-4"
@@ -202,24 +199,6 @@ function NewUserDialog() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('users.fieldPassword')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      disabled={busy}
-                      {...field}
-                    />
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

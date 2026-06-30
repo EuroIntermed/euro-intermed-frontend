@@ -293,14 +293,33 @@ export interface LoginResponse {
   user: AuthUser
 }
 
-export async function login(
-  email: string,
-  password: string,
-): Promise<LoginResponse> {
-  // Login itself is unauthed but shares the envelope/error handling.
-  return authedFetch<LoginResponse>('/auth/login', {
+/**
+ * Step 1 of passwordless email-OTP sign-in. Asks the backend to email a 6-digit
+ * code to `email`. The backend ALWAYS answers `202` with an empty body (it never
+ * reveals whether the account exists), so we treat any 2xx as success and only
+ * surface transport/rate-limit failures (e.g. 429) as a thrown {@link ApiError}.
+ */
+export async function requestCode(email: string): Promise<void> {
+  await authedFetch<void>('/auth/request-code', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email }),
+  })
+}
+
+/**
+ * Step 2 of passwordless email-OTP sign-in. Exchanges the emailed 6-digit `code`
+ * for a session token + {@link AuthUser}. The backend returns `401` for any
+ * failure (wrong/expired/consumed code or too many attempts) — surfaced as an
+ * {@link ApiError} the login page maps to a friendly message.
+ */
+export async function verifyCode(
+  email: string,
+  code: string,
+): Promise<LoginResponse> {
+  // Verify is unauthed but shares the envelope/error handling.
+  return authedFetch<LoginResponse>('/auth/verify-code', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
   })
 }
 
@@ -644,15 +663,18 @@ export async function listUsers(): Promise<PublicUser[]> {
   return authedFetch<PublicUser[]>('/users')
 }
 
-/** Create-user payload (POST /api/users, admin only). */
+/**
+ * Create-user payload (POST /api/users, admin only). No password — the backend
+ * emails the new user an invite; they sign in via the passwordless email-OTP
+ * flow ({@link requestCode} / {@link verifyCode}).
+ */
 export interface UserCreate {
   email: string
   name: string
   role: UserRole
-  password: string
 }
 
-/** Create a staff/admin user. Admin only; 409 on duplicate email. */
+/** Create a staff/admin user (sends an invite email). Admin only; 409 on duplicate email. */
 export async function createUser(body: UserCreate): Promise<PublicUser> {
   return authedFetch<PublicUser>('/users', {
     method: 'POST',

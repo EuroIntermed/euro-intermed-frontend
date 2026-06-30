@@ -9,7 +9,11 @@ import {
   isAdminRole,
   type AuthUser,
 } from '@/lib/authStore'
-import { login as apiLogin, setUnauthorizedHandler } from '@/lib/api'
+import {
+  requestCode as apiRequestCode,
+  verifyCode as apiVerifyCode,
+  setUnauthorizedHandler,
+} from '@/lib/api'
 
 /**
  * Provides dashboard auth state (user + token) backed by localStorage, and wires
@@ -37,8 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => setUnauthorizedHandler(null)
   }, [])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await apiLogin(email, password)
+  const requestCode = useCallback(async (email: string) => {
+    await apiRequestCode(email)
+  }, [])
+
+  const verifyCode = useCallback(async (email: string, code: string) => {
+    const res = await apiVerifyCode(email, code)
     setStoredAuth(res.token, res.user)
     setToken(res.token)
     setUser(res.user)
@@ -52,8 +60,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, token, isAdmin: isAdminRole(user?.role), login, logout }),
-    [user, token, login, logout],
+    () => ({
+      user,
+      token,
+      isAdmin: isAdminRole(user?.role),
+      requestCode,
+      verifyCode,
+      logout,
+    }),
+    [user, token, requestCode, verifyCode, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
