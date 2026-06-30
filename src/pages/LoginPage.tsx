@@ -266,7 +266,17 @@ export function LoginPage() {
                               name={field.name}
                               onBlur={field.onBlur}
                               ref={field.ref}
-                              onChange={(value: string) => field.onChange(value)}
+                              // input-otp is a controlled component: it only
+                              // renders what `value` says. The Controller's
+                              // field.onChange does not commit here, so we write
+                              // through the form's setValue (the reliable path)
+                              // and keep field.value for display.
+                              onChange={(value: string) =>
+                                codeForm.setValue('code', value, {
+                                  shouldDirty: true,
+                                  shouldValidate: false,
+                                })
+                              }
                               onComplete={() =>
                                 codeForm.handleSubmit(onVerifyCode)()
                               }
