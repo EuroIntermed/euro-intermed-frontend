@@ -5,6 +5,13 @@ import cssInjectedByJs from 'vite-plugin-css-injected-by-js'
 
 export default defineConfig({
   plugins: [react(), cssInjectedByJs()],
+  // Vite library mode does NOT replace `process.env.NODE_ENV`, so the bundled
+  // (dev) React keeps a literal `process.*` reference that throws
+  // "ReferenceError: process is not defined" when widget.js runs in a browser.
+  // Defining it here both kills that reference and ships React's production path.
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
