@@ -4,24 +4,40 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useT } from '@/lib/i18n'
 
-const API_URL = import.meta.env.VITE_API_URL ?? window.location.origin
 const WIDGET_URL = `${window.location.origin}/widget.js`
 
+// The backend API URL is baked into widget.js at build time (frontend's
+// VITE_API_URL), so the snippet does NOT pass apiUrl. `defer` + the
+// DOMContentLoaded guard make the embed robust on any host page. No containerId
+// → floating launcher button (bottom-right). privacyUrl points at the host
+// site's own privacy page for the GDPR consent notice.
 const embedCode = `<!-- Angrosist Chat Widget -->
-<script src="${WIDGET_URL}"></script>
+<script src="${WIDGET_URL}" defer></script>
 <script>
-  AngrosistChat.init({ apiUrl: '${API_URL}' });
+  window.addEventListener('DOMContentLoaded', function () {
+    if (!window.AngrosistChat) return;
+    window.AngrosistChat.init({
+      vertical: 'angrosist',
+      intent: 'buy',
+      lang: 'ro',
+      privacyUrl: '/privacy.html'
+    });
+  });
 </script>`
 
 // PalletClearance seller variant — vertical/intent default to angrosist/buy when
 // omitted, so the default snippet keeps existing embeds working.
 const sellerEmbedCode = `<!-- PalletClearance — flux vânzător (cu fotografii) -->
-<script src="${WIDGET_URL}"></script>
+<script src="${WIDGET_URL}" defer></script>
 <script>
-  AngrosistChat.init({
-    apiUrl: '${API_URL}',
-    vertical: 'palletclearance',
-    intent: 'sell'
+  window.addEventListener('DOMContentLoaded', function () {
+    if (!window.AngrosistChat) return;
+    window.AngrosistChat.init({
+      vertical: 'palletclearance',
+      intent: 'sell',
+      lang: 'en',
+      privacyUrl: '/privacy.html'
+    });
   });
 </script>`
 
@@ -30,8 +46,8 @@ type Variant = 'default' | 'seller'
 /**
  * Inline embed-snippet panel: a segmented control to pick the vertical variant,
  * the copy-to-clipboard code block, and a short note. Lives directly on the
- * widget page (no dialog). The API/widget URLs come from VITE_API_URL / the
- * current origin — never hardcoded.
+ * widget page (no dialog). The widget URL comes from the current origin; the
+ * backend API URL is baked into widget.js at build time — never hardcoded here.
  */
 export function EmbedCode() {
   const { t } = useT()
