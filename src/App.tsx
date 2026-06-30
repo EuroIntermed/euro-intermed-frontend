@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ComponentType } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
@@ -9,41 +9,69 @@ import { ThemeProvider } from '@/components/theme/ThemeProvider'
 import { LanguageProvider } from '@/lib/i18n'
 import { Toaster } from '@/components/ui/sonner'
 
+// lazyWithReload is lazy() that self-heals after a redeploy. When a route chunk
+// fails to load — typically because the app was redeployed with new hashes while
+// this tab was open, so the old chunk 404s and the SPA fallback returns
+// index.html (text/html → "not a valid JavaScript MIME type") — it reloads the
+// page once to pull the fresh index.html + chunks. A sessionStorage guard keeps
+// a genuinely missing chunk from looping; it clears on any successful load.
+function lazyWithReload<T extends ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>,
+) {
+  const RELOAD_KEY = 'chunk-reload-once'
+  return lazy(() =>
+    factory()
+      .then((mod) => {
+        sessionStorage.removeItem(RELOAD_KEY)
+        return mod
+      })
+      .catch((err: unknown) => {
+        if (!sessionStorage.getItem(RELOAD_KEY)) {
+          sessionStorage.setItem(RELOAD_KEY, '1')
+          window.location.reload()
+          // Suspend until the reload takes over; never render the failed chunk.
+          return new Promise<{ default: T }>(() => {})
+        }
+        throw err
+      }),
+  )
+}
+
 // The app is dashboard-first: every real screen lives under /dashboard and is
 // code-split so each route only loads when an operator reaches it.
-const OverviewPage = lazy(() =>
+const OverviewPage = lazyWithReload(() =>
   import('@/pages/OverviewPage').then((m) => ({ default: m.OverviewPage })),
 )
-const PipelinePage = lazy(() =>
+const PipelinePage = lazyWithReload(() =>
   import('@/pages/PipelinePage').then((m) => ({ default: m.PipelinePage })),
 )
-const LeadDetailPage = lazy(() =>
+const LeadDetailPage = lazyWithReload(() =>
   import('@/pages/LeadDetailPage').then((m) => ({ default: m.LeadDetailPage })),
 )
-const InventoryPage = lazy(() =>
+const InventoryPage = lazyWithReload(() =>
   import('@/pages/InventoryPage').then((m) => ({ default: m.InventoryPage })),
 )
-const CompaniesPage = lazy(() =>
+const CompaniesPage = lazyWithReload(() =>
   import('@/pages/CompaniesPage').then((m) => ({ default: m.CompaniesPage })),
 )
-const CompanyDetailPage = lazy(() =>
+const CompanyDetailPage = lazyWithReload(() =>
   import('@/pages/CompanyDetailPage').then((m) => ({
     default: m.CompanyDetailPage,
   })),
 )
-const HandoffsPage = lazy(() =>
+const HandoffsPage = lazyWithReload(() =>
   import('@/pages/HandoffsPage').then((m) => ({ default: m.HandoffsPage })),
 )
-const TasksPage = lazy(() =>
+const TasksPage = lazyWithReload(() =>
   import('@/pages/TasksPage').then((m) => ({ default: m.TasksPage })),
 )
-const WidgetPage = lazy(() =>
+const WidgetPage = lazyWithReload(() =>
   import('@/pages/WidgetPage').then((m) => ({ default: m.WidgetPage })),
 )
-const UsersPage = lazy(() =>
+const UsersPage = lazyWithReload(() =>
   import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
-const LoginPage = lazy(() =>
+const LoginPage = lazyWithReload(() =>
   import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
 
