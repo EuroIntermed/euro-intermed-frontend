@@ -1,6 +1,14 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { Building2, BuildingIcon } from 'lucide-react'
+import {
+  Building2,
+  BuildingIcon,
+  Check,
+  HelpCircle,
+  Loader2,
+  X,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -58,6 +66,68 @@ function vatTone(status: string | null | undefined): Tone {
     default:
       return 'neutral'
   }
+}
+
+/** Renders the leading status icon for a StatusCard from its tone. */
+function ToneIcon({ tone }: { tone: Tone }) {
+  switch (tone) {
+    case 'success':
+      return <Check className="size-4" />
+    case 'danger':
+    case 'warning':
+      return <X className="size-4" />
+    default:
+      return <HelpCircle className="size-4" />
+  }
+}
+
+/** Soft background paired with the family text colour, matching StatePill tones. */
+const CARD_TONE_CLASS: Record<Tone, string> = {
+  brand: 'bg-brand-soft text-brand',
+  success: 'bg-success-soft text-success',
+  warning: 'bg-warning-soft text-warning',
+  info: 'bg-info-soft text-info',
+  danger: 'bg-destructive-soft text-destructive',
+  neutral: 'bg-muted text-muted-foreground',
+}
+
+interface StatusCardProps {
+  label: string
+  value: string
+  tone: Tone
+  /** Optional small sub-line shown muted under the value. */
+  hint?: string
+}
+
+/**
+ * A single demoanaf-style status tile: a tinted icon chip + a label and a
+ * colour-coded value. Reuses the same tone vocabulary as StatePill so colours
+ * stay consistent across the page.
+ */
+function StatusCard({ label, value, tone, hint }: StatusCardProps) {
+  return (
+    <Card className="gap-0 py-0">
+      <CardHeader className="flex flex-row items-center gap-3 px-4 py-4">
+        <span
+          aria-hidden
+          className={`flex size-9 shrink-0 items-center justify-center rounded-full ${CARD_TONE_CLASS[tone]}`}
+        >
+          <ToneIcon tone={tone} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <CardTitle className="mt-0.5 truncate text-sm font-semibold">
+            {value}
+          </CardTitle>
+          {hint && (
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              {hint}
+            </p>
+          )}
+        </div>
+      </CardHeader>
+    </Card>
+  )
 }
 
 export function CompanyDetailPage() {
@@ -140,6 +210,58 @@ function CompanyDetailBody({
     .filter((name) => name.length > 0)
   const financials = company.financials ?? []
 
+  // --- Status cards (mirror demoanaf.ro) -----------------------------------
+  // TVA: prefer the explicit boolean; fall back to the canonical vat_status.
+  let tvaTone: Tone
+  let tvaValue: string
+  if (company.vat_registered === true) {
+    tvaTone = 'success'
+    tvaValue = t('companies.vatRegistered')
+  } else if (company.vat_registered === false) {
+    tvaTone = 'danger'
+    tvaValue = t('companies.vatUnregistered')
+  } else if (company.vat_status === 'active') {
+    tvaTone = 'success'
+    tvaValue = t('companies.vatRegistered')
+  } else if (
+    company.vat_status === 'not_registered' ||
+    company.vat_status === 'inactive'
+  ) {
+    tvaTone = company.vat_status === 'inactive' ? 'danger' : 'neutral'
+    tvaValue = t('companies.vatUnregistered')
+  } else {
+    tvaTone = 'neutral'
+    tvaValue = t('companies.statusUnknown')
+  }
+
+  // Status ONRC
+  const onrcTone: Tone = company.onrc_status_label ? 'success' : 'neutral'
+  const onrcValue = company.onrc_status_label || t('companies.onrcUnknown')
+
+  // Stare (active / inactive taxpayer)
+  let stareTone: Tone = 'neutral'
+  let stareValue = t('companies.statusUnknown')
+  if (company.is_active === true) {
+    stareTone = 'success'
+    stareValue = t('companies.taxpayerActive')
+  } else if (company.is_active === false) {
+    stareTone = 'warning'
+    stareValue = t('companies.taxpayerInactive')
+  }
+
+  // Split TVA — "not applying" is the healthy default, so success when not applying.
+  const splitApplies = company.split_vat === true
+  const splitTone: Tone = splitApplies ? 'warning' : 'success'
+  const splitValue = splitApplies
+    ? t('companies.splitTvaApplies')
+    : t('companies.splitTvaNotApplies')
+
+  // Financials section state. Treat a non-empty array as ready regardless of flag.
+  const financialsStatus: 'pending' | 'ready' | 'none' =
+    financials.length > 0
+      ? 'ready'
+      : (company.financials_status ?? 'pending')
+
   const title = company.name || t('companies.fallbackTitle')
 
   return (
@@ -210,6 +332,31 @@ function CompanyDetailBody({
         />
       )}
 
+      {/* Fiscal status overview — demoanaf-style status tiles (2x2 on desktop). */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatusCard
+          label={t('companies.cardTva')}
+          value={tvaValue}
+          tone={tvaTone}
+        />
+        <StatusCard
+          label={t('companies.cardOnrcStatus')}
+          value={onrcValue}
+          tone={onrcTone}
+        />
+        <StatusCard
+          label={t('companies.cardStare')}
+          value={stareValue}
+          tone={stareTone}
+          hint={company.registration_state || undefined}
+        />
+        <StatusCard
+          label={t('companies.cardSplitTva')}
+          value={splitValue}
+          tone={splitTone}
+        />
+      </div>
+
       {/* Main (registry + financials) + a narrower sidebar (verification,
           administrators, roles). Cards flow within each column so short cards no
           longer leave a tall void beside the identity card. */}
@@ -271,12 +418,36 @@ function CompanyDetailBody({
 
               <Field label={t('companies.address')} value={company.address} />
               <Field label={t('companies.county')} value={company.county} />
+              <Field
+                label={t('companies.postalCode')}
+                value={company.postal_code}
+              />
+              <Field
+                label={t('companies.fiscalAuthority')}
+                value={company.fiscal_authority}
+              />
+
+              {/* TVA la încasare (cash-basis VAT) yes/no pill. */}
+              {company.cash_basis_vat != null && (
+                <div>
+                  <dt className="text-xs text-muted-foreground mb-1.5">
+                    {t('companies.cashBasisVat')}
+                  </dt>
+                  <dd>
+                    <StatePill
+                      tone={company.cash_basis_vat ? 'success' : 'neutral'}
+                    >
+                      {company.cash_basis_vat ? t('detail.yes') : t('detail.no')}
+                    </StatePill>
+                  </dd>
+                </div>
+              )}
             </dl>
           </SectionCard>
 
-          {/* Financials (multi-year) */}
+          {/* Financials (multi-year) — state-driven: ready / none / pending. */}
           <SectionCard title={t('companies.financials')} flush>
-            {financials.length > 0 ? (
+            {financialsStatus === 'ready' ? (
               <>
                 <Separator />
                 <Table>
@@ -297,7 +468,14 @@ function CompanyDetailBody({
                   <TableBody>
                     {financials.map((f) => (
                       <TableRow key={f.year}>
-                        <TableCell className="tabular-nums">{f.year}</TableCell>
+                        <TableCell className="tabular-nums">
+                          {f.year}
+                          {f.caen_description && (
+                            <span className="block text-xs font-normal text-muted-foreground">
+                              {f.caen_description}
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatRON(lang, f.turnover, t('common.none'))}
                         </TableCell>
@@ -312,11 +490,19 @@ function CompanyDetailBody({
                   </TableBody>
                 </Table>
               </>
-            ) : (
+            ) : financialsStatus === 'none' ? (
               <div className="px-6 pb-6">
-                <p className="text-sm text-muted-foreground">
-                  {t('companies.noFinancials')}
+                <p className="text-sm font-medium">
+                  {t('companies.noPublicBalance')}
                 </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t('companies.noPublicBalanceDesc')}
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-6 pb-6 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                <span>{t('companies.financialsLoading')}</span>
               </div>
             )}
           </SectionCard>

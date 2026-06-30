@@ -99,6 +99,10 @@ export function useCompanyDetail(id: string) {
     queryKey: ['company', id],
     queryFn: () => getCompany(id),
     enabled: !!id,
+    // While the backend is still computing financials, poll until it resolves to
+    // 'ready' or 'none'; otherwise leave the query static (no polling).
+    refetchInterval: (query) =>
+      query.state.data?.financials_status === 'pending' ? 4_000 : false,
   })
 }
 

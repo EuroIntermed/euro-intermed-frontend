@@ -479,6 +479,29 @@ export const ro = {
     netProfit: 'Profit net',
     employees: 'Angajați',
     notReported: 'Neraportat',
+    // --- Status cards (mirror demoanaf.ro) ---
+    statusOverview: 'Stare fiscală',
+    cardTva: 'TVA',
+    vatRegistered: 'Înregistrat TVA',
+    vatUnregistered: 'Neînregistrat TVA',
+    cardOnrcStatus: 'Status ONRC',
+    onrcUnknown: 'Indisponibil',
+    cardStare: 'Stare',
+    taxpayerActive: 'Contribuabil activ',
+    taxpayerInactive: 'Contribuabil inactiv',
+    cardSplitTva: 'Split TVA',
+    splitTvaApplies: 'Aplică Split TVA',
+    splitTvaNotApplies: 'Nu aplică Split TVA',
+    statusUnknown: 'Necunoscut',
+    // --- Date Generale additions ---
+    fiscalAuthority: 'Organ fiscal',
+    postalCode: 'Cod poștal',
+    cashBasisVat: 'TVA la încasare',
+    // --- Financials states ---
+    noPublicBalance: 'Niciun bilanț public',
+    noPublicBalanceDesc:
+      'Nu există bilanțuri publice pentru această entitate. Datele pentru anul în curs pot lipsi până la data de depunere (mai–iunie).',
+    financialsLoading: 'Datele financiare se încarcă…',
   },
   handoffs: {
     title: 'Coadă de intervenții',
@@ -1073,6 +1096,29 @@ export const en: Dict = {
     netProfit: 'Net profit',
     employees: 'Employees',
     notReported: 'Not reported',
+    // --- Status cards (mirror demoanaf.ro) ---
+    statusOverview: 'Fiscal status',
+    cardTva: 'VAT',
+    vatRegistered: 'VAT registered',
+    vatUnregistered: 'Not VAT registered',
+    cardOnrcStatus: 'ONRC status',
+    onrcUnknown: 'Unavailable',
+    cardStare: 'Standing',
+    taxpayerActive: 'Active taxpayer',
+    taxpayerInactive: 'Inactive taxpayer',
+    cardSplitTva: 'Split VAT',
+    splitTvaApplies: 'Applies Split VAT',
+    splitTvaNotApplies: 'Does not apply Split VAT',
+    statusUnknown: 'Unknown',
+    // --- General details additions ---
+    fiscalAuthority: 'Tax authority',
+    postalCode: 'Postal code',
+    cashBasisVat: 'Cash-basis VAT',
+    // --- Financials states ---
+    noPublicBalance: 'No public balance sheet',
+    noPublicBalanceDesc:
+      'There are no public balance sheets for this entity. Data for the current year may be missing until the filing date (May–June).',
+    financialsLoading: 'Financial data is loading…',
   },
   handoffs: {
     title: 'Handoff queue',

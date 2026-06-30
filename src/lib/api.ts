@@ -847,6 +847,22 @@ export interface CompanyDetail extends CompanySummary {
   is_active?: boolean
   verification?: CompanyVerificationView | null
   financials?: CompanyFinancialView[]
+  /** True = VAT registered, false = not registered (mirrors demoanaf TVA card). */
+  vat_registered?: boolean
+  /** Whether the entity applies the Split VAT mechanism. */
+  split_vat?: boolean
+  /** "TVA la încasare" — cash-basis VAT accounting. */
+  cash_basis_vat?: boolean
+  /** ONRC status label, e.g. "Funcțiune". */
+  onrc_status_label?: string
+  /** Raw fiscal state string, e.g. "TRANSFER(SOSIRE) din data 26.11.2025". */
+  registration_state?: string
+  /** "Organ fiscal" — e.g. "Unitatea Fiscală Orășenească Pucioasa". */
+  fiscal_authority?: string
+  /** Postal code. */
+  postal_code?: string
+  /** Drives the Date Financiare section state. */
+  financials_status?: 'pending' | 'ready' | 'none'
 }
 
 /** Normalizes an administrator entry (string or {name}) to a display string. */
