@@ -1,5 +1,15 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:all && cp dist-widget/widget.js dist/widget.js",
   "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/widget.js",
+      "headers": [
+        { "key": "Content-Type", "value": "application/javascript; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=600" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
