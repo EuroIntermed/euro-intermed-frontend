@@ -1,15 +1,22 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Workflow } from 'lucide-react'
+import { ArrowRight, MessageSquare, Workflow } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import {
   Table,
   TableBody,
@@ -26,10 +33,8 @@ import { SectionCard } from '@/components/dashboard/SectionCard'
 import { DetailHeader, MetaField } from '@/components/dashboard/DetailHeader'
 import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
 import { LeadActivity } from '@/components/dashboard/LeadActivity'
-import {
-  TranscriptThread,
-  type RequestRef,
-} from '@/components/dashboard/TranscriptThread'
+import { ConversationPanel } from '@/components/dashboard/ConversationPanel'
+import { type RequestRef } from '@/components/dashboard/TranscriptThread'
 import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
@@ -362,6 +367,37 @@ export function LeadDetail({ lead, users }: Props) {
         icon={Workflow}
         eyebrow={t('detail.eyebrowLead')}
         title={title}
+        actions={
+          // Small/medium screens have no room for the sticky conversation rail,
+          // so the transcript lives behind a Sheet toggle here; the desktop rail
+          // hides this control (xl:hidden).
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 xl:hidden">
+                <MessageSquare className="size-4" />
+                {t('detail.viewTranscript')}
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="right"
+              className="w-full gap-0 p-4 sm:max-w-md"
+            >
+              <SheetHeader className="space-y-1 p-0 pb-3">
+                <SheetTitle>{t('detail.sectionTranscript')}</SheetTitle>
+                <SheetDescription>
+                  {t('detail.sectionTranscriptDesc')}
+                </SheetDescription>
+              </SheetHeader>
+              <ConversationPanel
+                bare
+                className="min-h-0 flex-1"
+                messages={lead.transcript ?? []}
+                requests={requests}
+                needsHuman={lead.needs_human}
+              />
+            </SheetContent>
+          </Sheet>
+        }
         badges={
           <>
             {lead.seq != null && (
@@ -419,26 +455,13 @@ export function LeadDetail({ lead, users }: Props) {
         />
       )}
 
-      {/* Two columns: the conversation + the request fill the wide main column;
-          actions and reference cards stack in a narrower sidebar so short cards
-          never leave a tall void. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
-          {/* Conversation — the full thread, shown once (no separate drawer). */}
-          <Card className="flex flex-col">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                {t('detail.sectionTranscript')}
-              </CardTitle>
-              <CardDescription>
-                {t('detail.sectionTranscriptDesc')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="max-h-[68vh] overflow-y-auto">
-          <TranscriptThread messages={lead.transcript ?? []} requests={requests} />
-        </CardContent>
-      </Card>
-
+      {/* Two-column body: all lead content (request, reference + action cards)
+          fills the main left column, while the conversation lives in a sticky,
+          independently-scrollable right rail (xl+). Below xl the rail collapses
+          and the transcript is reachable via the header Sheet toggle. */}
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        {/* LEFT — main content */}
+        <div className="flex min-w-0 flex-col gap-4">
           {/* Typed request: PalletClearance listing / buyer profile, else the
               Angrosist sourcing-request (extracted) card. */}
           {listing ? (
@@ -536,17 +559,18 @@ export function LeadDetail({ lead, users }: Props) {
             </CardContent>
           </Card>
           )}
-        </div>
 
-        {/* Sidebar: actions first (most-used), then company + contact reference. */}
-        <div className="flex min-w-0 flex-col gap-4">
-          <OfferCard lead={lead} />
-          <AssigneeCard lead={lead} users={users} />
-          <FollowUpCard lead={lead} />
-          <LeadActivity leadId={lead.id} />
+          {/* Actions + reference cards. Two responsive columns so short cards
+              (offer/assignee/follow-up, company/contact) pack tightly instead of
+              leaving tall voids in a single column. */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <OfferCard lead={lead} />
+            <AssigneeCard lead={lead} users={users} />
+            <FollowUpCard lead={lead} />
+            <LeadActivity leadId={lead.id} />
 
-          {company && (
-          <SectionCard title={t('detail.company')}>
+            {company && (
+            <SectionCard title={t('detail.company')}>
               <dl className="flex flex-col gap-3">
                 <Field label={t('detail.company')} value={company.name} />
                 <Field
@@ -627,12 +651,24 @@ export function LeadDetail({ lead, users }: Props) {
                 />
               </dl>
           </SectionCard>
-        )}
+          )}
+          </div>
 
+          <SiblingRequests siblings={lead.sibling_requests ?? []} />
         </div>
-      </div>
 
-      <SiblingRequests siblings={lead.sibling_requests ?? []} />
+        {/* RIGHT — conversation companion. Sticky within the grid cell and given
+            a bounded, independently-scrollable height so it stays visible while
+            the left column scrolls. Hidden below xl (the header Sheet covers it). */}
+        <aside className="hidden xl:block">
+          <ConversationPanel
+            className="sticky top-20 h-[calc(100dvh-7rem)]"
+            messages={lead.transcript ?? []}
+            requests={requests}
+            needsHuman={lead.needs_human}
+          />
+        </aside>
+      </div>
     </PageShell>
   )
 }

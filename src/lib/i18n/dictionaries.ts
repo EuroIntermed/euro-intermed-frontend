@@ -175,6 +175,8 @@ export const ro = {
     sectionRequestDesc: 'Cererea tipată extrasă din conversație.',
     sectionTranscript: 'Conversație',
     sectionTranscriptDesc: 'Conversația completă cu clientul, de la început.',
+    transcriptBot: 'Agent activ',
+    transcriptHuman: 'Preluat de om',
     conversationStart: 'Începutul conversației',
     handoffTitle: 'Necesită intervenție umană',
     handoffDesc:
@@ -793,6 +795,8 @@ export const en: Dict = {
     sectionRequestDesc: 'The typed request extracted from the conversation.',
     sectionTranscript: 'Conversation',
     sectionTranscriptDesc: 'The full conversation with the client, oldest first.',
+    transcriptBot: 'Bot active',
+    transcriptHuman: 'Taken over',
     conversationStart: 'Conversation start',
     handoffTitle: 'Needs a human',
     handoffDesc:
