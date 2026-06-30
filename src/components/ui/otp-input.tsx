@@ -97,6 +97,9 @@ export const OtpInput = React.forwardRef<HTMLInputElement, OtpInputProps>(
             'h-16 w-full max-w-[17rem] rounded-xl border border-input bg-background',
             'text-center font-mono text-3xl font-semibold tabular-nums tracking-[0.4em]',
             'shadow-xs outline-none transition-all',
+            // Defeat the iOS/Safari WebKit bug where an inherited
+            // -webkit-user-select:none makes a native input unfocusable by tap.
+            'cursor-text touch-manipulation select-text',
             'placeholder:tracking-[0.3em] placeholder:text-muted-foreground/30',
             'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
             'disabled:cursor-not-allowed disabled:opacity-50',
