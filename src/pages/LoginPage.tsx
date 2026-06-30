@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,6 +10,11 @@ import { ApiError } from '@/lib/api'
 import { useT } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from '@/components/ui/input-otp'
 import {
   Card,
   CardContent,
@@ -86,12 +91,6 @@ export function LoginPage() {
     const id = window.setTimeout(() => setCooldown((c) => c - 1), 1000)
     return () => window.clearTimeout(id)
   }, [cooldown])
-
-  // Autofocus the code field when we advance to step 2.
-  const codeInputRef = useRef<HTMLInputElement | null>(null)
-  useEffect(() => {
-    if (step === 'code') codeInputRef.current?.focus()
-  }, [step])
 
   const mapError = useCallback(
     (err: unknown): string => {
@@ -253,22 +252,34 @@ export function LoginPage() {
                       control={codeForm.control}
                       name="code"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('auth.codeLabel')}</FormLabel>
+                        <FormItem className="flex flex-col items-center">
+                          <FormLabel className="self-start">
+                            {t('auth.codeLabel')}
+                          </FormLabel>
                           <FormControl>
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              autoComplete="one-time-code"
+                            <InputOTP
                               maxLength={6}
-                              placeholder="••••••"
+                              autoFocus
                               disabled={verifying}
-                              {...field}
-                              ref={(el) => {
-                                field.ref(el)
-                                codeInputRef.current = el
-                              }}
-                            />
+                              containerClassName="justify-center"
+                              value={field.value}
+                              name={field.name}
+                              onBlur={field.onBlur}
+                              ref={field.ref}
+                              onChange={(value: string) => field.onChange(value)}
+                              onComplete={() =>
+                                codeForm.handleSubmit(onVerifyCode)()
+                              }
+                            >
+                              <InputOTPGroup>
+                                <InputOTPSlot index={0} />
+                                <InputOTPSlot index={1} />
+                                <InputOTPSlot index={2} />
+                                <InputOTPSlot index={3} />
+                                <InputOTPSlot index={4} />
+                                <InputOTPSlot index={5} />
+                              </InputOTPGroup>
+                            </InputOTP>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
