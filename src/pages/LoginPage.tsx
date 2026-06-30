@@ -10,7 +10,11 @@ import { ApiError } from '@/lib/api'
 import { useT } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { OtpInput } from '@/components/ui/otp-input'
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from '@/components/ui/input-otp'
 import {
   Card,
   CardContent,
@@ -253,11 +257,11 @@ export function LoginPage() {
                             {t('auth.codeLabel')}
                           </FormLabel>
                           <FormControl>
-                            <OtpInput
-                              length={6}
+                            <InputOTP
+                              maxLength={6}
                               autoFocus
                               disabled={verifying}
-                              aria-label={t('auth.codeLabel')}
+                              containerClassName="justify-center"
                               value={field.value}
                               name={field.name}
                               onBlur={field.onBlur}
@@ -266,7 +270,16 @@ export function LoginPage() {
                               onComplete={() =>
                                 codeForm.handleSubmit(onVerifyCode)()
                               }
-                            />
+                            >
+                              <InputOTPGroup>
+                                <InputOTPSlot index={0} />
+                                <InputOTPSlot index={1} />
+                                <InputOTPSlot index={2} />
+                                <InputOTPSlot index={3} />
+                                <InputOTPSlot index={4} />
+                                <InputOTPSlot index={5} />
+                              </InputOTPGroup>
+                            </InputOTP>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
