@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { useAuth } from '@/auth/useAuth'
 import {
   Select,
   SelectContent,
@@ -41,7 +43,13 @@ interface Props {
 
 export function LeadFilterBar({ value, users, showAssignee, onChange }: Props) {
   const { t } = useT()
+  const { user } = useAuth()
   const { leadStatuses, verticals } = useEnums()
+
+  // "My leads" is on when the assignee filter targets the signed-in user — the
+  // same `assigned_to` param the dropdown uses (so an assignee who followed the
+  // email deep-link can pull up their queue in one click). Toggling off clears it.
+  const mineActive = !!user && value.assigned_to === user.id
   // Local mirror so typing in search is responsive; debounce up to the URL.
   const [search, setSearch] = useState(value.q)
 
@@ -62,6 +70,20 @@ export function LeadFilterBar({ value, users, showAssignee, onChange }: Props) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {user && (
+        <Button
+          type="button"
+          size="sm"
+          variant={mineActive ? 'default' : 'outline'}
+          aria-pressed={mineActive}
+          onClick={() =>
+            onChange({ assigned_to: mineActive ? '' : user.id })
+          }
+        >
+          {t('pipeline.myLeads')}
+        </Button>
+      )}
+
       <div className="relative flex-1 min-w-[200px]">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input

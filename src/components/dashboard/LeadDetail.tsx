@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, MessageSquare, Workflow } from 'lucide-react'
+import { ArrowRight, Building2, MessageSquare, User, Workflow } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -8,6 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -29,8 +35,7 @@ import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
 import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
 import { Banner } from '@/components/dashboard/Banner'
-import { SectionCard } from '@/components/dashboard/SectionCard'
-import { DetailHeader, MetaField } from '@/components/dashboard/DetailHeader'
+import { DetailHeader } from '@/components/dashboard/DetailHeader'
 import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
 import { LeadActivity } from '@/components/dashboard/LeadActivity'
 import { ConversationPanel } from '@/components/dashboard/ConversationPanel'
@@ -39,6 +44,7 @@ import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
 import { PageShell } from '@/components/layout/PageShell'
+import { useAuth } from '@/auth/useAuth'
 import {
   useT,
   useEnums,
@@ -315,6 +321,7 @@ interface Props {
 export function LeadDetail({ lead, users }: Props) {
   const { t, lang } = useT()
   const { verticalLabel, roleLabel, intentLabel } = useEnums()
+  const { user } = useAuth()
 
   const company = lead.company
   const contact = lead.contact
@@ -352,6 +359,18 @@ export function LeadDetail({ lead, users }: Props) {
   })()
 
   const title = lead.company_name || t('detail.fallbackTitle')
+
+  // Resolve the current assignee to a display name so an assignee who followed
+  // the email deep-link immediately sees the lead is theirs. Admins get the
+  // full user list; staff (empty list) fall back to their own name when it's
+  // self-assigned, otherwise the raw id.
+  const assigneeName = lead.assigned_to
+    ? users.find((u) => u.id === lead.assigned_to)?.name ||
+      users.find((u) => u.id === lead.assigned_to)?.email ||
+      (lead.assigned_to === user?.id
+        ? user?.name || user?.email
+        : lead.assigned_to)
+    : null
 
   return (
     <PageShell
@@ -400,6 +419,14 @@ export function LeadDetail({ lead, users }: Props) {
         }
         badges={
           <>
+            {/* State + identity chips — each rendered ONCE. Status is the single
+                authoritative badge here (the OfferCard select is the editable
+                control); quality, vertical, intent, seq, CUI and needs_human are
+                not repeated in a separate meta strip anymore. */}
+            <StatusBadge status={lead.status} />
+            {lead.needs_human && (
+              <Badge variant="destructive">{t('pipeline.needsHuman')}</Badge>
+            )}
             {lead.seq != null && (
               <Badge variant="outline" className="tabular-nums">
                 {t('detail.seqHandle', { n: lead.seq })}
@@ -411,7 +438,6 @@ export function LeadDetail({ lead, users }: Props) {
             {lead.intent && (
               <Badge variant="outline">{intentLabel(lead.intent)}</Badge>
             )}
-            <StatusBadge status={lead.status} />
             {qualityScore != null && (
               <Badge variant={qualityVariant(qualityScore)}>
                 {t('detail.qualityScoreValue', { n: qualityScore })}
@@ -420,29 +446,23 @@ export function LeadDetail({ lead, users }: Props) {
           </>
         }
         meta={
-          <>
-            <MetaField label={t('detail.metaCreated')}>
-              {formatDate(lang, lead.created_at)}
-            </MetaField>
-            <MetaField label={t('detail.metaStatus')}>
-              <StatusBadge status={lead.status} />
-            </MetaField>
-            {lead.vertical && (
-              <MetaField label={t('detail.metaVertical')}>
-                {verticalLabel(lead.vertical)}
-              </MetaField>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            {/* CUI shown once here (its detailed home is the Company card). */}
+            {(company?.cui || company?.reg_no) && (
+              <span className="tabular-nums">
+                {t('companies.colCui')}: {company.cui || company.reg_no}
+              </span>
             )}
-            {lead.delivery_location && (
-              <MetaField label={t('detail.metaLocation')}>
-                {lead.delivery_location}
-              </MetaField>
-            )}
-            {qualityScore != null && (
-              <MetaField label={t('detail.metaQuality')}>
-                {t('detail.qualityScoreValue', { n: qualityScore })}
-              </MetaField>
-            )}
-          </>
+            <span>
+              {t('detail.metaCreated')}: {formatDate(lang, lead.created_at)}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <User className="size-3.5" />
+              {assigneeName
+                ? t('detail.assignedTo', { name: assigneeName })
+                : t('detail.assignedToNobody')}
+            </span>
+          </div>
         }
       />
 
@@ -560,101 +580,162 @@ export function LeadDetail({ lead, users }: Props) {
           </Card>
           )}
 
-          {/* Actions + reference cards. Two responsive columns so short cards
-              (offer/assignee/follow-up, company/contact) pack tightly instead of
-              leaving tall voids in a single column. */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <OfferCard lead={lead} />
-            <AssigneeCard lead={lead} users={users} />
-            <FollowUpCard lead={lead} />
-            <LeadActivity leadId={lead.id} />
+          {/* ACTIONS — the manager's interactive controls (offer / assignee /
+              follow-up), grouped in a visually distinct bordered section so they
+              read as "work to do", clearly separated from read-only reference. */}
+          <section
+            aria-label={t('detail.actionsGroup')}
+            className="rounded-xl border bg-muted/30 p-4"
+          >
+            <div className="mb-3 flex flex-col gap-0.5">
+              <h2 className="text-sm font-semibold">{t('detail.actionsGroup')}</h2>
+              <p className="text-xs text-muted-foreground">
+                {t('detail.actionsGroupDesc')}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <OfferCard lead={lead} />
+              <AssigneeCard lead={lead} users={users} />
+              <FollowUpCard lead={lead} />
+            </div>
+          </section>
 
-            {company && (
-            <SectionCard title={t('detail.company')}>
-              <dl className="flex flex-col gap-3">
-                <Field label={t('detail.company')} value={company.name} />
-                <Field
-                  label={t('companies.colCui')}
-                  value={company.cui || company.reg_no}
-                />
-                <Field label={t('detail.country')} value={company.country} />
-                <Field label={t('detail.caen')} value={company.caen} />
-                <Field
-                  label={t('detail.vatStatus')}
-                  value={company.vat_status || verification?.vat_status}
-                />
-              </dl>
+          {/* REFERENCE — secondary read-only info. Company + Contact are compact
+              and collapsible so they don't dominate; siblings + audit timeline
+              live at the bottom. */}
+          <section
+            aria-label={t('detail.referenceGroup')}
+            className="flex flex-col gap-4"
+          >
+            <h2 className="text-sm font-semibold">
+              {t('detail.referenceGroup')}
+            </h2>
 
-              {company.roles && company.roles.length > 0 && (
-                <div className="mt-3">
-                  <dt className="mb-1.5 text-xs text-muted-foreground">
-                    {t('detail.roles')}
-                  </dt>
-                  <div className="flex flex-wrap gap-1.5">
-                    {company.roles.map((r) => (
-                      <Badge key={r} variant="outline">
-                        {roleLabel(r)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+            {(company || contact || lead.phone || lead.email) && (
+              <Card>
+                <Accordion
+                  type="multiple"
+                  defaultValue={['company']}
+                  className="px-4"
+                >
+                  {company && (
+                    <AccordionItem value="company">
+                      <AccordionTrigger>
+                        <span className="flex items-center gap-2">
+                          <Building2 className="size-4 text-muted-foreground" />
+                          {t('detail.company')}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <dl className="flex flex-col gap-3">
+                          <Field
+                            label={t('detail.company')}
+                            value={company.name}
+                          />
+                          <Field
+                            label={t('companies.colCui')}
+                            value={company.cui || company.reg_no}
+                          />
+                          <Field
+                            label={t('detail.country')}
+                            value={company.country}
+                          />
+                          <Field label={t('detail.caen')} value={company.caen} />
+                          <Field
+                            label={t('detail.vatStatus')}
+                            value={company.vat_status || verification?.vat_status}
+                          />
+                        </dl>
 
-              <Separator className="my-4" />
+                        {company.roles && company.roles.length > 0 && (
+                          <div className="mt-3">
+                            <dt className="mb-1.5 text-xs text-muted-foreground">
+                              {t('detail.roles')}
+                            </dt>
+                            <div className="flex flex-wrap gap-1.5">
+                              {company.roles.map((r) => (
+                                <Badge key={r} variant="outline">
+                                  {roleLabel(r)}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
 
-              {verification ? (
-                <div className="flex flex-col gap-3">
-                  <Banner
-                    tone="success"
-                    title={t('detail.verifiedTitle')}
-                    description={
-                      verification.checked_at
-                        ? t('detail.verifiedDesc', {
-                            date: formatDateTime(lang, verification.checked_at),
-                          })
-                        : undefined
-                    }
-                  />
-                  {administrators.length > 0 && (
-                    <div>
-                      <dt className="text-xs text-muted-foreground">
-                        {t('detail.administrators')}
-                      </dt>
-                      <dd className="mt-0.5 text-sm font-medium">
-                        {administrators.join(', ')}
-                      </dd>
-                    </div>
+                        <Separator className="my-4" />
+
+                        {verification ? (
+                          <div className="flex flex-col gap-3">
+                            <Banner
+                              tone="success"
+                              title={t('detail.verifiedTitle')}
+                              description={
+                                verification.checked_at
+                                  ? t('detail.verifiedDesc', {
+                                      date: formatDateTime(
+                                        lang,
+                                        verification.checked_at,
+                                      ),
+                                    })
+                                  : undefined
+                              }
+                            />
+                            {administrators.length > 0 && (
+                              <div>
+                                <dt className="text-xs text-muted-foreground">
+                                  {t('detail.administrators')}
+                                </dt>
+                                <dd className="mt-0.5 text-sm font-medium">
+                                  {administrators.join(', ')}
+                                </dd>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <Banner
+                            tone="warning"
+                            title={t('detail.unverifiedTitle')}
+                            description={t('detail.unverifiedDesc')}
+                          />
+                        )}
+                      </AccordionContent>
+                    </AccordionItem>
                   )}
-                </div>
-              ) : (
-                <Banner
-                  tone="warning"
-                  title={t('detail.unverifiedTitle')}
-                  description={t('detail.unverifiedDesc')}
-                />
-              )}
-          </SectionCard>
-        )}
 
-        {/* Contact */}
-        {(contact || lead.phone || lead.email) && (
-          <SectionCard title={t('detail.contact')}>
-              <dl className="flex flex-col gap-3">
-                <Field label={t('detail.contactName')} value={contact?.name} />
-                <Field
-                  label={t('detail.contactPhone')}
-                  value={contact?.phone || lead.phone}
-                />
-                <Field
-                  label={t('detail.contactEmail')}
-                  value={contact?.email || lead.email}
-                />
-              </dl>
-          </SectionCard>
-          )}
-          </div>
+                  {(contact || lead.phone || lead.email) && (
+                    <AccordionItem value="contact">
+                      <AccordionTrigger>
+                        <span className="flex items-center gap-2">
+                          <User className="size-4 text-muted-foreground" />
+                          {t('detail.contact')}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <dl className="flex flex-col gap-3">
+                          <Field
+                            label={t('detail.contactName')}
+                            value={contact?.name}
+                          />
+                          <Field
+                            label={t('detail.contactPhone')}
+                            value={contact?.phone || lead.phone}
+                          />
+                          <Field
+                            label={t('detail.contactEmail')}
+                            value={contact?.email || lead.email}
+                          />
+                        </dl>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )}
+                </Accordion>
+              </Card>
+            )}
 
-          <SiblingRequests siblings={lead.sibling_requests ?? []} />
+            <SiblingRequests siblings={lead.sibling_requests ?? []} />
+
+            <LeadActivity leadId={lead.id} />
+          </section>
         </div>
 
         {/* RIGHT — conversation companion. Sticky within the grid cell and given

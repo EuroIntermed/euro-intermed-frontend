@@ -81,6 +81,7 @@ export const ro = {
     allAssignees: 'Toți responsabilii',
     unassigned: 'Nealocat',
     showDrafts: 'Arată ciornele',
+    myLeads: 'Lead-urile mele',
     needsHuman: 'Necesită intervenție',
     seqHandle: 'Cererea #{n}',
     emptyTitle: 'Niciun lead',
@@ -206,6 +207,12 @@ export const ro = {
     verifiedDesc: 'Datele firmei au fost confirmate la {date}.',
     unverifiedTitle: 'Companie neverificată',
     unverifiedDesc: 'Datele firmei nu au fost încă verificate prin ANAF.',
+    // Grouping (declutter pass): acțiuni de management vs. informații de referință.
+    actionsGroup: 'Acțiuni',
+    actionsGroupDesc: 'Ofertă, alocare și follow-up pentru acest lead.',
+    referenceGroup: 'Detalii și referință',
+    assignedTo: 'Alocat lui {name}',
+    assignedToNobody: 'Nealocat',
   },
   overview: {
     subtitle: 'Ce trebuie făcut, sănătatea afacerii și piața dintr-o privire.',
@@ -743,6 +750,7 @@ export const en: Dict = {
     allAssignees: 'All assignees',
     unassigned: 'Unassigned',
     showDrafts: 'Show drafts',
+    myLeads: 'My leads',
     needsHuman: 'Needs intervention',
     seqHandle: 'Request #{n}',
     emptyTitle: 'No leads',
@@ -868,6 +876,12 @@ export const en: Dict = {
     verifiedDesc: 'The company details were confirmed on {date}.',
     unverifiedTitle: 'Company not verified',
     unverifiedDesc: 'The company details have not been verified via ANAF yet.',
+    // Grouping (declutter pass): manager actions vs. reference information.
+    actionsGroup: 'Actions',
+    actionsGroupDesc: 'Offer, assignment, and follow-up for this lead.',
+    referenceGroup: 'Details & reference',
+    assignedTo: 'Assigned to {name}',
+    assignedToNobody: 'Unassigned',
   },
   overview: {
     subtitle: 'What to do, business health, and the marketplace at a glance.',
