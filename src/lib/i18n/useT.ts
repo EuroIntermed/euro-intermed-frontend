@@ -3,6 +3,7 @@ import { I18nContext } from './context'
 import type { Lang } from './dictionaries'
 import { translate } from './resolve'
 import type { TKey } from './types'
+import { ACTIVE_LEAD_STATUSES } from '@/lib/leadStatus'
 
 /**
  * Access the active language + translate function. Throws if used outside
@@ -15,24 +16,14 @@ export function useT() {
 }
 
 /**
- * The canonical lead statuses in pipeline order. `draft` and `cancelled` are
- * hidden from the pipeline list by default server-side; they appear here so the
- * status filter Select can opt them back in (the documented "show drafts"
- * mechanism is an explicit `status=draft` filter — see PipelinePage).
+ * The SELECTABLE lead statuses (dropdowns + filter Select), in pipeline order.
+ * This is the simplified manager-facing set — see `src/lib/leadStatus.ts` for the
+ * single source of truth. Deprecated codes (new/qualifying/qualified/follow_up)
+ * are intentionally excluded here (still labeled via the dictionary for legacy
+ * rows); `draft` is opted in via the "show drafts" toggle, and `needs_human` has
+ * its own Handoffs view.
  */
-const STATUS_VALUES = [
-  'draft',
-  'new',
-  'qualifying',
-  'needs_human',
-  'qualified',
-  'offer_requested',
-  'offer_sent',
-  'negotiation',
-  'won',
-  'lost',
-  'cancelled',
-] as const
+const STATUS_VALUES = ACTIVE_LEAD_STATUSES
 
 const VERTICAL_VALUES = ['angrosist', 'palletclearance', 'skalyou'] as const
 

@@ -371,7 +371,9 @@ function CompanyDetailBody({
                 value={company.cui || company.reg_no}
               />
               <Field label={t('companies.colCountry')} value={company.country} />
-              <Field label={t('companies.regNo')} value={company.reg_no} />
+              {/* Trade-register number (ONRC J-/F-number). NOT company.reg_no —
+                  for RO companies reg_no is the CUI (the (country, reg_no) dedup
+                  key), so showing it here just duplicated the CUI field above. */}
               <Field
                 label={t('companies.registrationNumber')}
                 value={company.registration_number}

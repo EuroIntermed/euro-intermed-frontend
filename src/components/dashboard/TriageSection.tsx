@@ -57,8 +57,9 @@ function Tile({
 /**
  * "What needs action now" — the triage row at the top of the overview. Three
  * drill-in tiles count the work waiting on a human: handoffs (needs_human leads),
- * new unassigned leads, and follow-up tasks past their due date. Each links to
- * the filtered view that resolves it.
+ * new unassigned leads (fresh offer_requested, the pipeline entry state), and
+ * follow-up tasks past their due date. Each links to the filtered view that
+ * resolves it.
  */
 export function TriageSection() {
   const { t } = useT()
@@ -66,7 +67,11 @@ export function TriageSection() {
   // overdue follow-ups.
   const [now] = useState(() => Date.now())
   const handoffs = useHandoffs()
-  const newLeads = useLeadsList({ status: 'new', assigned_to: 'none', limit: 1 })
+  const newLeads = useLeadsList({
+    status: 'offer_requested',
+    assigned_to: 'none',
+    limit: 1,
+  })
   const tasks = useTasks({ status: 'open' })
 
   const loading = handoffs.isLoading || newLeads.isLoading || tasks.isLoading
@@ -107,7 +112,7 @@ export function TriageSection() {
         desc={t('overview.handoffsWaitingDesc')}
       />
       <Tile
-        to="/dashboard/pipeline?status=new&assigned_to=none"
+        to="/dashboard/pipeline?status=offer_requested&assigned_to=none"
         icon={UserPlus}
         count={newCount}
         label={t('overview.newUnassigned')}

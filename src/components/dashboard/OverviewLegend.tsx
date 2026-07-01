@@ -3,19 +3,15 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { useT } from '@/lib/i18n'
 import type { TKey } from '@/lib/i18n/types'
+import { ACTIVE_LEAD_STATUSES } from '@/lib/leadStatus'
 
-// Lead lifecycle, ordered along the working path (escalation breaks out via
-// needs_human; draft/cancelled are the off-pipeline states, shown last).
+// Lead lifecycle, ordered along the working path: the ACTIVE pipeline first,
+// then the needs_human escalation flag, then the off-pipeline draft/cancelled
+// states. Deprecated legacy codes are omitted here (they still render a pill on
+// any legacy row via StatusBadge, but aren't part of the current glossary).
 const STATUSES = [
-  'new',
-  'qualifying',
+  ...ACTIVE_LEAD_STATUSES,
   'needs_human',
-  'qualified',
-  'offer_requested',
-  'offer_sent',
-  'negotiation',
-  'won',
-  'lost',
   'draft',
   'cancelled',
 ] as const

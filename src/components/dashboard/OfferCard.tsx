@@ -24,8 +24,16 @@ interface Props {
 export function OfferCard({ lead }: Props) {
   const queryClient = useQueryClient()
   const { t } = useT()
-  const { leadStatuses } = useEnums()
+  const { leadStatuses, statusLabel } = useEnums()
   const [status, setStatus] = useState(lead.status)
+
+  // The Select only offers the ACTIVE pipeline. If the current lead carries a
+  // status outside that set (a deprecated/legacy code, needs_human, draft…),
+  // surface it as a leading option so the control isn't blank and its label
+  // still reads correctly — the user can then move it into the active pipeline.
+  const options = leadStatuses.some((s) => s.value === status)
+    ? leadStatuses
+    : [{ value: status, label: statusLabel(status) }, ...leadStatuses]
   const [value, setValue] = useState(
     lead.offer_value != null ? String(lead.offer_value) : '',
   )
@@ -98,7 +106,7 @@ export function OfferCard({ lead }: Props) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {leadStatuses.map((s) => (
+              {options.map((s) => (
                 <SelectItem key={s.value} value={s.value}>
                   {s.label}
                 </SelectItem>

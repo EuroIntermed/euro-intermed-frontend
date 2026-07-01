@@ -325,18 +325,27 @@ export async function verifyCode(
 
 // --- Leads (paginated, filtered) ------------------------------------------
 
+/**
+ * All lead status codes the wire may carry. The manager-facing pipeline uses
+ * only the ACTIVE subset (see `src/lib/leadStatus.ts`); `needs_human` is an
+ * escalation flag; `draft`/`cancelled` are internal; and `new`/`qualifying`/
+ * `qualified`/`follow_up` are DEPRECATED — never offered as a choice, but still
+ * typed + labeled so legacy leads that carry them render correctly.
+ */
 export type LeadStatus =
   | 'draft'
-  | 'new'
-  | 'qualifying'
   | 'needs_human'
-  | 'qualified'
   | 'offer_requested'
   | 'offer_sent'
   | 'negotiation'
   | 'won'
   | 'lost'
   | 'cancelled'
+  // Deprecated legacy codes — render-only, not selectable.
+  | 'new'
+  | 'qualifying'
+  | 'qualified'
+  | 'follow_up'
 
 export type Vertical = 'angrosist' | 'palletclearance' | 'skalyou'
 
