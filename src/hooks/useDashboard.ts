@@ -11,6 +11,7 @@ import {
   listHandoffs,
   listListings,
   listListingPhotos,
+  listCategories,
   getKpis,
   listTasks,
   ApiError,
@@ -127,6 +128,21 @@ export function useListingPhotos(listingId: string | undefined) {
     queryKey: ['listing-photos', listingId],
     queryFn: () => listListingPhotos(listingId as string),
     enabled: !!listingId,
+    staleTime: 5 * 60_000,
+  })
+}
+
+/**
+ * The full shared category taxonomy (flat list + live per-category counts).
+ * Fetched once and cached — the inventory filter picker, the "by category" view
+ * and the admin merge surface all read from this single query, so a merge only
+ * has to invalidate ['categories'] to refresh every consumer. The caller builds
+ * the parent/child tree from each node's `parent_id`.
+ */
+export function useCategories() {
+  return useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories(),
     staleTime: 5 * 60_000,
   })
 }

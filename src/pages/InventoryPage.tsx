@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Boxes } from 'lucide-react'
+import { Boxes, LayoutList, LayoutGrid } from 'lucide-react'
 import { PageShell } from '@/components/layout/PageShell'
 import { InventoryTable } from '@/components/dashboard/InventoryTable'
+import { InventoryByCategory } from '@/components/dashboard/InventoryByCategory'
+import { ManageCategoriesDialog } from '@/components/dashboard/ManageCategoriesDialog'
 import {
   InventoryFilterBar,
   type InventoryFilterState,
@@ -10,15 +12,21 @@ import {
 import { QueryState } from '@/components/dashboard/QueryState'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { ListFooter } from '@/components/dashboard/ListFooter'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useListings } from '@/hooks/useDashboard'
+import { useAuth } from '@/auth/useAuth'
 import { useT } from '@/lib/i18n'
 import type { ListingFilters } from '@/lib/api'
 
 const PAGE_SIZE = 25
 
+/** Inventory display modes: the flat table vs the per-category grouped view. */
+type ViewMode = 'list' | 'category'
+
 export function InventoryPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { t } = useT()
+  const { isAdmin } = useAuth()
 
   const filters: InventoryFilterState = useMemo(
     () => ({
@@ -26,16 +34,32 @@ export function InventoryPage() {
       stock_type: searchParams.get('stock_type') ?? '',
       food_non_food: searchParams.get('food_non_food') ?? '',
       country: searchParams.get('country') ?? '',
+      category_id: searchParams.get('category_id') ?? '',
       q: searchParams.get('q') ?? '',
     }),
     [searchParams],
+  )
+
+  // View mode lives in the URL (?view=category) so it is shareable.
+  const view: ViewMode =
+    searchParams.get('view') === 'category' ? 'category' : 'list'
+  const setView = useCallback(
+    (next: string) => {
+      setSearchParams((prev) => {
+        const p = new URLSearchParams(prev)
+        if (next === 'category') p.set('view', 'category')
+        else p.delete('view')
+        return p
+      })
+    },
+    [setSearchParams],
   )
 
   // Cursor lives in the URL so a page is shareable. A small stack of seen cursors
   // (reset whenever the filters change) lets us offer a working "Previous" with a
   // keyset/cursor API that only returns a forward `next_cursor`.
   const cursor = searchParams.get('cursor') ?? ''
-  const filterSig = `${filters.status}|${filters.stock_type}|${filters.food_non_food}|${filters.country}|${filters.q}`
+  const filterSig = `${filters.status}|${filters.stock_type}|${filters.food_non_food}|${filters.country}|${filters.category_id}|${filters.q}`
   const [history, setHistory] = useState<{ sig: string; cursors: string[] }>({
     sig: filterSig,
     cursors: [''],
@@ -52,6 +76,7 @@ export function InventoryPage() {
     stock_type: filters.stock_type || undefined,
     food_non_food: filters.food_non_food || undefined,
     country: filters.country || undefined,
+    category_id: filters.category_id || undefined,
     q: filters.q || undefined,
     limit: PAGE_SIZE,
     cursor: cursor || undefined,
@@ -121,6 +146,28 @@ export function InventoryPage() {
       <div className="flex flex-col gap-6">
         <InventoryFilterBar value={filters} onChange={onFilterChange} />
 
+        <div className="flex flex-wrap items-center gap-2">
+          <Tabs value={view} onValueChange={setView}>
+            <TabsList>
+              <TabsTrigger value="list">
+                <LayoutList className="h-4 w-4" />
+                {t('inventory.viewList')}
+              </TabsTrigger>
+              <TabsTrigger value="category">
+                <LayoutGrid className="h-4 w-4" />
+                {t('inventory.viewByCategory')}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Admin-only merge/cleanup surface; backend RBAC stays the real gate. */}
+          {isAdmin && (
+            <div className="ml-auto">
+              <ManageCategoriesDialog />
+            </div>
+          )}
+        </div>
+
         <QueryState
           isLoading={isLoading}
           error={error}
@@ -135,7 +182,11 @@ export function InventoryPage() {
             />
           }
         >
-          <InventoryTable listings={data?.data ?? []} />
+          {view === 'category' ? (
+            <InventoryByCategory listings={data?.data ?? []} />
+          ) : (
+            <InventoryTable listings={data?.data ?? []} />
+          )}
           <ListFooter
             countLabel={t(
               count === 1 ? 'inventory.countOne' : 'inventory.countOther',

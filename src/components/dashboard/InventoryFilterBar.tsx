@@ -8,6 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { CategoryPicker } from '@/components/dashboard/CategoryPicker'
+import { useCategories } from '@/hooks/useDashboard'
 import { useT, useEnums } from '@/lib/i18n'
 
 const ALL = '__all__'
@@ -17,6 +19,7 @@ export interface InventoryFilterState {
   stock_type: string
   food_non_food: string
   country: string
+  category_id: string
   q: string
 }
 
@@ -34,6 +37,8 @@ interface Props {
 export function InventoryFilterBar({ value, onChange }: Props) {
   const { t } = useT()
   const { listingStatuses, foodNonFoodOptions } = useEnums()
+  // Fetched once and cached (shared with the "by category" view + merge dialog).
+  const { data: categories, isLoading: categoriesLoading } = useCategories()
 
   // Local mirrors so typing in the text fields stays responsive; debounce to URL.
   const [search, setSearch] = useState(value.q)
@@ -130,6 +135,13 @@ export function InventoryFilterBar({ value, onChange }: Props) {
           ))}
         </SelectContent>
       </Select>
+
+      <CategoryPicker
+        categories={categories ?? []}
+        value={value.category_id}
+        onChange={(id) => onChange({ category_id: id })}
+        loading={categoriesLoading}
+      />
 
       <Input
         value={stockType}

@@ -947,6 +947,12 @@ export interface ListingFilters {
   stock_type?: string
   food_non_food?: string
   country?: string
+  /**
+   * Resolved canonical taxonomy id (listings.category_id) to drill the inventory
+   * into one category — the id comes from {@link listCategories}. Empty = no
+   * filter.
+   */
+  category_id?: string
   q?: string
   limit?: number
   cursor?: string
@@ -954,9 +960,9 @@ export interface ListingFilters {
 
 /**
  * Fetches one keyset page of the PalletClearance stock inventory. Filters are
- * exact-match (status/stock_type/food_non_food/country) plus an ILIKE `q`; the
- * next page is requested by passing back `page.next_cursor`. Mirrors the handoff
- * queue's cursor envelope.
+ * exact-match (status/stock_type/food_non_food/country/category_id) plus an ILIKE
+ * `q`; the next page is requested by passing back `page.next_cursor`. Mirrors the
+ * handoff queue's cursor envelope.
  */
 export async function listListings(
   filters: ListingFilters,
@@ -966,11 +972,68 @@ export async function listListings(
   if (filters.stock_type) params.set('stock_type', filters.stock_type)
   if (filters.food_non_food) params.set('food_non_food', filters.food_non_food)
   if (filters.country) params.set('country', filters.country)
+  if (filters.category_id) params.set('category_id', filters.category_id)
   if (filters.q) params.set('q', filters.q)
   if (filters.limit) params.set('limit', String(filters.limit))
   if (filters.cursor) params.set('cursor', filters.cursor)
   const qs = params.toString()
   return authedFetch<ListingListPage>(`/listings${qs ? `?${qs}` : ''}`)
+}
+
+// --- Categories (shared taxonomy) ------------------------------------------
+
+/**
+ * Category status. Extensible (validated, not a closed set): 'active' is a
+ * curated/confident canonical category; 'unreviewed' is auto-created below the
+ * resolver confidence floor and awaits staff curation. Widened to `string` so a
+ * future status the backend adds does not break the type.
+ */
+export type CategoryStatus = 'active' | 'unreviewed' | (string & {})
+
+/**
+ * Category mirrors domain.CategoryNode / openapi CategoryNode: one canonical
+ * taxonomy node plus its live reference `count`. The list is FLAT — each node
+ * carries `parent_id` (empty = root) so the dashboard assembles the tree
+ * client-side and can render "Dairy (12)".
+ */
+export interface Category {
+  id: string
+  /** Parent category id; empty string for a top-level root. */
+  parent_id: string
+  name: string
+  /** Stable unique slug. */
+  code: string
+  status: CategoryStatus
+  sort_order: number
+  /** Records (listings + sourcing_requests + buyer_profiles) referencing this id. */
+  count: number
+}
+
+/**
+ * Fetches the full shared taxonomy with per-category live counts, ordered by
+ * sort_order then name (GET /api/categories). Returns the flat node list; the
+ * caller builds the tree from `parent_id`.
+ */
+export async function listCategories(): Promise<Category[]> {
+  const res = await authedFetch<{ categories: Category[] }>('/categories')
+  return res.categories ?? []
+}
+
+/**
+ * Merges one category into another (POST /api/categories/merge, ADMIN only).
+ * Repoints every reference from `fromId` onto `intoId` and deletes the emptied
+ * `fromId` category, returning the total references moved. The two ids must
+ * differ (else the backend returns 400 VALIDATION_FAILED); a missing category
+ * yields 404 — both surfaced as a thrown {@link ApiError}.
+ */
+export async function mergeCategories(
+  fromId: string,
+  intoId: string,
+): Promise<{ moved: number }> {
+  return authedFetch<{ moved: number }>('/categories/merge', {
+    method: 'POST',
+    body: JSON.stringify({ from_id: fromId, into_id: intoId }),
+  })
 }
 
 /** One seller photo with a time-limited signed download URL (openapi PhotoView). */
