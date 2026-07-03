@@ -393,19 +393,24 @@ export function LeadDetail({ lead, users }: Props) {
         eyebrow={t('detail.eyebrowLead')}
         title={title}
         actions={
-          // Small/medium screens have no room for the sticky conversation rail,
-          // so the transcript lives behind a Sheet toggle here; the desktop rail
-          // hides this control (xl:hidden).
+          // The conversation lives entirely behind this toggle on every screen
+          // size (no permanent rail), so the detail page stays uncluttered.
+          // Inside, ConversationPanel renders the read-only chat thread.
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2 xl:hidden">
+              <Button variant="outline" size="sm" className="gap-2">
                 <MessageSquare className="size-4" />
                 {t('detail.viewTranscript')}
+                {messageCount > 0 && (
+                  <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">
+                    {messageCount}
+                  </span>
+                )}
               </Button>
             </SheetTrigger>
             <SheetContent
               side="right"
-              className="w-full gap-0 p-4 sm:max-w-md"
+              className="flex w-full flex-col gap-0 p-4 sm:max-w-md md:max-w-lg"
             >
               <SheetHeader className="space-y-1 p-0 pb-3">
                 <SheetTitle>{t('detail.sectionTranscript')}</SheetTitle>
