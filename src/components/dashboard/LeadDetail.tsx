@@ -486,13 +486,10 @@ export function LeadDetail({ lead, users }: Props) {
         />
       )}
 
-      {/* Two-column body: all lead content (request, reference + action cards)
-          fills the main left column, while the conversation lives in a sticky,
-          independently-scrollable right rail (xl+). Below xl the rail collapses
-          and the transcript is reachable via the header Sheet toggle. */}
-      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        {/* LEFT — main content */}
-        <div className="flex min-w-0 flex-col gap-4">
+      {/* Single-column body: all lead content fills the full width. The
+          conversation is no longer a permanent rail — it opens on demand from
+          the header's transcript toggle (a right-side read-only chat Sheet). */}
+      <div className="flex min-w-0 flex-col gap-4">
           {/* Typed request: PalletClearance listing / buyer profile, else the
               Angrosist sourcing-request (extracted) card. */}
           {listing ? (
