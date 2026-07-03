@@ -351,6 +351,12 @@ export function LeadDetail({ lead, users }: Props) {
     })),
   ]
 
+  // Real chat turns (excludes tool/system rows), surfaced as a count on the
+  // transcript toggle so staff see there's a conversation to open.
+  const messageCount = (lead.transcript ?? []).filter(
+    (m) => m.role === 'user' || m.role === 'model' || m.role === 'assistant',
+  ).length
+
   const administrators = (() => {
     const a = verification?.administrators
     if (!a) return []
