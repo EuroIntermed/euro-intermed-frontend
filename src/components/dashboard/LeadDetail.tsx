@@ -744,19 +744,6 @@ export function LeadDetail({ lead, users }: Props) {
 
             <LeadActivity leadId={lead.id} />
           </section>
-        </div>
-
-        {/* RIGHT — conversation companion. Sticky within the grid cell and given
-            a bounded, independently-scrollable height so it stays visible while
-            the left column scrolls. Hidden below xl (the header Sheet covers it). */}
-        <aside className="hidden xl:block">
-          <ConversationPanel
-            className="sticky top-20 h-[calc(100dvh-7rem)]"
-            messages={lead.transcript ?? []}
-            requests={requests}
-            needsHuman={lead.needs_human}
-          />
-        </aside>
       </div>
     </PageShell>
   )
