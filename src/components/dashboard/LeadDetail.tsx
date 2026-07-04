@@ -43,6 +43,7 @@ import { type RequestRef } from '@/components/dashboard/TranscriptThread'
 import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
+import { ResumeBotButton } from '@/components/dashboard/ResumeBotButton'
 import { PageShell } from '@/components/layout/PageShell'
 import { useAuth } from '@/auth/useAuth'
 import {
@@ -483,6 +484,7 @@ export function LeadDetail({ lead, users }: Props) {
           tone="danger"
           title={t('detail.handoffTitle')}
           description={t('detail.handoffDesc')}
+          action={<ResumeBotButton leadId={lead.id} />}
         />
       )}
 

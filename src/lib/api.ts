@@ -658,6 +658,20 @@ export async function assignLead(
   })
 }
 
+/**
+ * Re-activates the automated agent on a handed-off (bot-muted) conversation
+ * (`POST /api/leads/{id}/resume-bot`). Staff-authenticated, no request body;
+ * the backend answers `204 No Content` on success and is idempotent (resuming
+ * an already-active lead is a no-op). A missing lead surfaces as a `404`
+ * {@link ApiError}. After it resolves the caller should invalidate the lead
+ * detail / handoff-queue queries so `needs_human` clears in the UI.
+ */
+export async function resumeBot(leadId: string): Promise<void> {
+  await authedFetch<void>(`/leads/${encodeURIComponent(leadId)}/resume-bot`, {
+    method: 'POST',
+  })
+}
+
 // --- Users (admin; degrades gracefully on 403) ----------------------------
 
 export interface PublicUser {

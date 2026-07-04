@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
+import { ResumeBotButton } from '@/components/dashboard/ResumeBotButton'
 import { QueryState } from '@/components/dashboard/QueryState'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { PageShell } from '@/components/layout/PageShell'
@@ -79,10 +80,18 @@ export function HandoffsPage() {
                       {formatDateTime(lang, h.created_at)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
-                        {t('handoffs.open')}
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </span>
+                      <div className="inline-flex items-center gap-3">
+                        <ResumeBotButton
+                          leadId={h.id}
+                          size="xs"
+                          variant="outline"
+                          stopPropagation
+                        />
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                          {t('handoffs.open')}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

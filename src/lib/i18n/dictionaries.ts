@@ -182,6 +182,9 @@ export const ro = {
     handoffTitle: 'Necesită intervenție umană',
     handoffDesc:
       'Agentul a fost oprit pentru acest lead — un consultant trebuie să preia conversația.',
+    resumeBot: 'Reia botul',
+    resumeBotSaved: 'Botul a fost reactivat.',
+    resumeBotError: 'Nu am putut reactiva botul.',
     confidentialTooltip:
       'Vânzătorul a cerut anonimat. Administratorii văd totuși numele complet al companiei.',
     photos: 'Fotografii',
@@ -851,6 +854,9 @@ export const en: Dict = {
     handoffTitle: 'Needs a human',
     handoffDesc:
       'The bot is muted for this lead — a consultant must take over the chat.',
+    resumeBot: 'Resume bot',
+    resumeBotSaved: 'Bot resumed.',
+    resumeBotError: 'Could not resume the bot.',
     confidentialTooltip:
       'The seller requested company anonymity. Admins still see the full company name.',
     photos: 'Photos',
