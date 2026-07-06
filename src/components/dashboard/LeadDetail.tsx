@@ -44,6 +44,7 @@ import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
 import { ResumeBotButton } from '@/components/dashboard/ResumeBotButton'
 import { PageShell } from '@/components/layout/PageShell'
+import { sentenceCase } from '@/lib/format'
 import { useAuth } from '@/auth/useAuth'
 import {
   useT,
@@ -139,7 +140,10 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
       </CardHeader>
       <CardContent>
         <dl className="flex flex-col gap-3">
-          <Field label={t('detail.stockType')} value={listing.stock_type} />
+          <Field
+            label={t('detail.stockType')}
+            value={listing.stock_type ? sentenceCase(listing.stock_type) : undefined}
+          />
           <Field
             label={t('detail.foodNonFood')}
             value={
@@ -148,7 +152,10 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
                 : undefined
             }
           />
-          <Field label={t('detail.category')} value={listing.category} />
+          <Field
+            label={t('detail.category')}
+            value={listing.category ? sentenceCase(listing.category) : undefined}
+          />
           <Field
             label={t('pipeline.colQuantity')}
             value={
@@ -157,7 +164,10 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
                 : undefined
             }
           />
-          <Field label={t('pipeline.colLocation')} value={listing.location} />
+          <Field
+            label={t('pipeline.colLocation')}
+            value={listing.location ? sentenceCase(listing.location) : undefined}
+          />
           <Field label={t('detail.country')} value={listing.country} />
           <Field
             label={t('detail.expiry')}
@@ -243,13 +253,16 @@ function BuyerProfileCard({ profile }: { profile: BuyerProfileView }) {
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((c) => (
                   <Badge key={c} variant="outline">
-                    {c}
+                    {sentenceCase(c)}
                   </Badge>
                 ))}
               </div>
             </div>
           )}
-          <Field label={t('detail.volume')} value={profile.volume} />
+          <Field
+            label={t('detail.volume')}
+            value={profile.volume ? sentenceCase(profile.volume) : undefined}
+          />
           {countries.length > 0 && (
             <div>
               <dt className="mb-1.5 text-xs text-muted-foreground">
@@ -258,7 +271,7 @@ function BuyerProfileCard({ profile }: { profile: BuyerProfileView }) {
               <div className="flex flex-wrap gap-1.5">
                 {countries.map((c) => (
                   <Badge key={c} variant="outline">
-                    {c}
+                    {sentenceCase(c)}
                   </Badge>
                 ))}
               </div>
@@ -363,7 +376,7 @@ interface Props {
 
 export function LeadDetail({ lead, users }: Props) {
   const { t, lang } = useT()
-  const { verticalLabel, roleLabel, intentLabel } = useEnums()
+  const { verticalLabel, roleLabel, intentLabel, vatLabel } = useEnums()
   const { user } = useAuth()
 
   const company = lead.company
@@ -579,7 +592,7 @@ export function LeadDetail({ lead, users }: Props) {
                         {lineItems.map((item, i) => (
                           <TableRow key={`${item.product}-${i}`}>
                             <TableCell className="font-medium break-words">
-                              {item.product}
+                              {sentenceCase(item.product)}
                             </TableCell>
                             <TableCell className="text-right whitespace-nowrap">
                               {item.quantity != null
@@ -597,7 +610,11 @@ export function LeadDetail({ lead, users }: Props) {
                   <dl className="flex flex-col gap-3">
                     <Field
                       label={t('pipeline.colLocation')}
-                      value={lead.delivery_location}
+                      value={
+                        lead.delivery_location
+                          ? sentenceCase(lead.delivery_location)
+                          : undefined
+                      }
                     />
                     {sr?.budget != null && (
                       <Field label={t('detail.budget')} value={sr.budget} />
@@ -618,7 +635,11 @@ export function LeadDetail({ lead, users }: Props) {
                 <dl className="flex flex-col gap-3">
                   <Field
                     label={t('pipeline.colProduct')}
-                    value={lead.product_name}
+                    value={
+                      lead.product_name
+                        ? sentenceCase(lead.product_name)
+                        : undefined
+                    }
                   />
                   <Field
                     label={t('pipeline.colQuantity')}
@@ -630,7 +651,11 @@ export function LeadDetail({ lead, users }: Props) {
                   />
                   <Field
                     label={t('pipeline.colLocation')}
-                    value={lead.delivery_location}
+                    value={
+                      lead.delivery_location
+                        ? sentenceCase(lead.delivery_location)
+                        : undefined
+                    }
                   />
                   {sr?.budget != null && (
                     <Field label={t('detail.budget')} value={sr.budget} />
@@ -719,7 +744,14 @@ export function LeadDetail({ lead, users }: Props) {
                           <Field label={t('detail.caen')} value={company.caen} />
                           <Field
                             label={t('detail.vatStatus')}
-                            value={company.vat_status || verification?.vat_status}
+                            value={
+                              company.vat_status || verification?.vat_status
+                                ? vatLabel(
+                                    company.vat_status ||
+                                      verification?.vat_status,
+                                  )
+                                : undefined
+                            }
                           />
                         </dl>
 

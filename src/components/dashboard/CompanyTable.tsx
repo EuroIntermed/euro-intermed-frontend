@@ -22,7 +22,7 @@ interface Props {
 export function CompanyTable({ companies, sort, dir, onSort }: Props) {
   const navigate = useNavigate()
   const { t, lang } = useT()
-  const { roleLabel } = useEnums()
+  const { roleLabel, vatLabel } = useEnums()
 
   return (
     <div className="rounded-lg border overflow-hidden">
@@ -70,7 +70,9 @@ export function CompanyTable({ companies, sort, dir, onSort }: Props) {
                 </TableCell>
                 <TableCell>{c.country || t('common.none')}</TableCell>
                 <TableCell>{c.caen || t('common.none')}</TableCell>
-                <TableCell>{c.vat_status || t('common.none')}</TableCell>
+                <TableCell>
+                  {c.vat_status ? vatLabel(c.vat_status) : t('common.none')}
+                </TableCell>
                 <TableCell>
                   {c.roles && c.roles.length > 0 ? (
                     <div className="flex flex-wrap gap-1">
