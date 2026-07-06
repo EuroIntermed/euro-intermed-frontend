@@ -47,8 +47,8 @@ const VAT_LABEL_KEY: Record<string, TKey> = {
   unknown: 'companies.vatUnknown',
 }
 
-/** Conversation intents (the buy/sell "tip client" proxy). */
-const INTENT_VALUES = ['buy', 'sell'] as const
+/** Conversation intents (the buy/sell "tip client" proxy; triage = router). */
+const INTENT_VALUES = ['buy', 'sell', 'triage'] as const
 
 /** UI/contact languages we localize; other codes fall back to their raw label. */
 const LANGUAGE_LABEL_KEY: Record<string, TKey> = {

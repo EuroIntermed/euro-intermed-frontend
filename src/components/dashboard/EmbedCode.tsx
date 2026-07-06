@@ -41,7 +41,23 @@ const sellerEmbedCode = `<!-- PalletClearance — flux vânzător (cu fotografii
   });
 </script>`
 
-type Variant = 'default' | 'seller'
+// Euro Intermed router variant — the triage agent classifies the inbound need and
+// re-routes the conversation into the concrete flow (angrosist buy / PC sell).
+const euroIntermedEmbedCode = `<!-- Euro Intermed — agent de triaj (router) -->
+<script src="${WIDGET_URL}" defer></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    if (!window.AngrosistChat) return;
+    window.AngrosistChat.init({
+      vertical: 'euro-intermed',
+      intent: 'triage',
+      lang: 'ro',
+      privacyUrl: '/privacy.html'
+    });
+  });
+</script>`
+
+type Variant = 'default' | 'seller' | 'euro-intermed'
 
 /**
  * Inline embed-snippet panel: a segmented control to pick the vertical variant,
@@ -54,7 +70,12 @@ export function EmbedCode() {
   const [variant, setVariant] = useState<Variant>('default')
   const [copied, setCopied] = useState(false)
 
-  const code = variant === 'seller' ? sellerEmbedCode : embedCode
+  const code =
+    variant === 'seller'
+      ? sellerEmbedCode
+      : variant === 'euro-intermed'
+        ? euroIntermedEmbedCode
+        : embedCode
 
   function copy() {
     navigator.clipboard.writeText(code)
@@ -65,6 +86,7 @@ export function EmbedCode() {
   const segments: { key: Variant; label: string }[] = [
     { key: 'default', label: t('embed.segAngrosist') },
     { key: 'seller', label: t('embed.segSeller') },
+    { key: 'euro-intermed', label: t('embed.segEuroIntermed') },
   ]
 
   return (
@@ -122,6 +144,8 @@ export function EmbedCode() {
             <code>vertical</code> &amp; <code>intent</code>{' '}
             {t('embed.optionalNote')}
           </>
+        ) : variant === 'euro-intermed' ? (
+          t('embed.routerNote')
         ) : (
           t('embed.floatNote')
         )}

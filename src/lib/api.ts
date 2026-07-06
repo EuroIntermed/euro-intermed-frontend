@@ -70,10 +70,19 @@ export interface ChatAck {
   status: string
 }
 
-/** Verticals the chat agent can serve. Angrosist (wholesale buyer) is the default. */
-export type ChatVertical = 'angrosist' | 'palletclearance'
-/** Conversation intent. `buy` is the default; `sell` enables the seller (photo) flow. */
-export type ChatIntent = 'buy' | 'sell'
+/**
+ * Verticals the chat agent can serve. Angrosist (wholesale buyer) is the
+ * default; `euro-intermed` is the router vertical whose agent triages an
+ * inbound conversation and re-routes it into the real flow (angrosist /
+ * palletclearance).
+ */
+export type ChatVertical = 'angrosist' | 'palletclearance' | 'euro-intermed'
+/**
+ * Conversation intent. `buy` is the default; `sell` enables the seller (photo)
+ * flow; `triage` is the router intent used with the `euro-intermed` vertical
+ * before the agent re-routes into a concrete buy/sell flow.
+ */
+export type ChatIntent = 'buy' | 'sell' | 'triage'
 
 /**
  * Optional flow selectors. They are only meaningful on the FIRST message of a
@@ -361,6 +370,16 @@ export interface LeadSummary {
   delivery_location: string
   created_at: string
   vertical: string
+  /**
+   * Conversation intent for this lead (buy / sell / triage). Present on the wire
+   * for agent-v2 leads; absent/empty for legacy rows — read defensively.
+   */
+  intent?: string
+  /**
+   * Best-effort contact display name for the lead's primary contact. Null/absent
+   * when no contact name is known — the UI degrades to just the company name.
+   */
+  contact_name?: string | null
   assigned_to: string | null
   needs_human: boolean
   offer_value: number | null
@@ -452,6 +471,14 @@ export interface SourcingLineItem {
   spec?: string
 }
 
+/**
+ * Free-form typed attributes captured by the agent for a product (e.g.
+ * `{ sizes: "S,M,L", gender: "unisex", expiry_date: "2026-01" }`). Keys are
+ * snake_case strings; values are primitives. Null/absent when the agent did not
+ * capture any — the UI renders nothing in that case.
+ */
+export type ProductAttributes = Record<string, string | number | boolean>
+
 export interface SourcingRequestView {
   lead_id?: string
   product: string
@@ -460,6 +487,8 @@ export interface SourcingRequestView {
   delivery_location?: string
   recurring?: boolean
   budget?: number | null
+  /** Free-form product attributes (agent-v2). May be null/absent. */
+  attributes?: ProductAttributes | null
   /**
    * Full multi-product line-item list (openapi SourcingRequest.items). Empty or
    * absent for a legacy single-product request written before line items
@@ -487,11 +516,12 @@ export interface ListingDetailView {
   country?: string
   expiry?: string | null
   target_price?: number | null
-  confidential: boolean
   status: string
   documents?: string[]
   photo_count: number
   created_at: string
+  /** Free-form product attributes (agent-v2). May be null/absent. */
+  attributes?: ProductAttributes | null
 }
 
 /**
@@ -561,6 +591,13 @@ export interface AuthedLeadDetail extends LeadSummary {
   phone?: string
   email?: string
   intent?: string
+  /**
+   * Primary contact's display name / role, projected onto the lead detail
+   * (agent-v2). Both are null/absent when unknown; the detail header hides the
+   * line gracefully in that case. `contact_name` also mirrors LeadSummary.
+   */
+  contact_name?: string | null
+  contact_role?: string | null
   summary?: string
   /**
    * Parent conversation of this lead (openapi LeadDetail.conversation_id). Each
@@ -953,7 +990,6 @@ export interface ListingView {
   country: string
   expiry: string | null
   target_price: number | null
-  confidential: boolean
   status: string
   photo_count: number
   created_at: string

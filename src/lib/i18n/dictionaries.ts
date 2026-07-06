@@ -94,6 +94,8 @@ export const ro = {
     countOne: '{n} lead',
     countOther: '{n} lead-uri',
     colCompany: 'Companie',
+    colSource: 'Sursă',
+    colType: 'Tip',
     colProduct: 'Produs',
     colQuantity: 'Cantitate',
     colLocation: 'Locație',
@@ -133,6 +135,7 @@ export const ro = {
     assignError: 'Nu am putut aloca lead-ul.',
     assignToMe: 'Aloca-mi mie',
     contactName: 'Nume',
+    contactRole: 'Funcție',
     contactPhone: 'Telefon',
     contactEmail: 'Email',
     budget: 'Buget',
@@ -163,7 +166,7 @@ export const ro = {
     category: 'Categorie',
     expiry: 'Expirare',
     targetPrice: 'Preț cerut',
-    confidential: 'Confidențial',
+    attributes: 'Atribute',
     documents: 'Documente',
     photoCount: 'Fotografii',
     categories: 'Categorii de interes',
@@ -171,7 +174,7 @@ export const ro = {
     countries: 'Țări de interes',
     nearExpiryOk: 'Acceptă produse aproape de expirare',
     subscribed: 'Abonat',
-    // Section titles + full-thread transcript + confidential (dashboard UX pass).
+    // Section titles + full-thread transcript (dashboard UX pass).
     sectionRequest: 'Detalii cerere',
     sectionRequestDesc: 'Cererea tipată extrasă din conversație.',
     sectionTranscript: 'Conversație',
@@ -185,8 +188,6 @@ export const ro = {
     resumeBot: 'Reia botul',
     resumeBotSaved: 'Botul a fost reactivat.',
     resumeBotError: 'Nu am putut reactiva botul.',
-    confidentialTooltip:
-      'Vânzătorul a cerut anonimat. Administratorii văd totuși numele complet al companiei.',
     photos: 'Fotografii',
     noPhotos: 'Nicio fotografie încărcată.',
     photosError: 'Nu am putut încărca fotografiile.',
@@ -416,7 +417,6 @@ export const ro = {
     next: 'Următor',
     countOne: '{n} lot',
     countOther: '{n} loturi',
-    confidential: 'Confidențial',
     photos: 'Fotografii',
     photosCount: '{n} foto',
     colCompany: 'Companie',
@@ -430,8 +430,6 @@ export const ro = {
     colTargetPrice: 'Preț cerut',
     colStatus: 'Status',
     colPhotos: 'Foto',
-    confidentialTooltip:
-      'Vânzătorul a cerut anonimat. Administratorii văd totuși numele complet al companiei.',
     // Category filter + "group by category" view (SMART CATEGORY inventory UX).
     filterCategory: 'Categorie',
     allCategories: 'Toate categoriile',
@@ -586,10 +584,12 @@ export const ro = {
     angrosist: 'Angrosist',
     palletclearance: 'PalletClearance',
     skalyou: 'SkalYou',
+    'euro-intermed': 'Euro Intermed',
   },
   intent: {
     buy: 'Cumpărător',
     sell: 'Vânzător',
+    triage: 'Triaj',
   },
   role: {
     distributor: 'Distribuitor',
@@ -613,6 +613,9 @@ export const ro = {
       'Variantă vânzător PalletClearance (cu încărcare fotografii)',
     segAngrosist: 'Angrosist (cumpărător)',
     segSeller: 'PalletClearance (vânzător)',
+    segEuroIntermed: 'Euro Intermed (router)',
+    routerNote:
+      'Agentul de triaj rutează conversația către fluxul potrivit (cumpărare/vânzare).',
     copy: 'Copiază codul',
     copied: 'Copiat',
     optionalNote: 'sunt opționale — implicit angrosist/buy.',
@@ -766,6 +769,8 @@ export const en: Dict = {
     countOne: '{n} lead',
     countOther: '{n} leads',
     colCompany: 'Company',
+    colSource: 'Source',
+    colType: 'Type',
     colProduct: 'Product',
     colQuantity: 'Quantity',
     colLocation: 'Location',
@@ -805,6 +810,7 @@ export const en: Dict = {
     assignError: 'Could not assign the lead.',
     assignToMe: 'Assign to me',
     contactName: 'Name',
+    contactRole: 'Role',
     contactPhone: 'Phone',
     contactEmail: 'Email',
     budget: 'Budget',
@@ -835,7 +841,7 @@ export const en: Dict = {
     category: 'Category',
     expiry: 'Expiry',
     targetPrice: 'Target price',
-    confidential: 'Confidential',
+    attributes: 'Attributes',
     documents: 'Documents',
     photoCount: 'Photos',
     categories: 'Categories of interest',
@@ -843,7 +849,7 @@ export const en: Dict = {
     countries: 'Countries of interest',
     nearExpiryOk: 'Accepts near-expiry stock',
     subscribed: 'Subscribed',
-    // Section titles + full-thread transcript + confidential (dashboard UX pass).
+    // Section titles + full-thread transcript (dashboard UX pass).
     sectionRequest: 'Request details',
     sectionRequestDesc: 'The typed request extracted from the conversation.',
     sectionTranscript: 'Conversation',
@@ -857,8 +863,6 @@ export const en: Dict = {
     resumeBot: 'Resume bot',
     resumeBotSaved: 'Bot resumed.',
     resumeBotError: 'Could not resume the bot.',
-    confidentialTooltip:
-      'The seller requested company anonymity. Admins still see the full company name.',
     photos: 'Photos',
     noPhotos: 'No photos uploaded.',
     photosError: 'Could not load the photos.',
@@ -1087,7 +1091,6 @@ export const en: Dict = {
     next: 'Next',
     countOne: '{n} lot',
     countOther: '{n} lots',
-    confidential: 'Confidential',
     photos: 'Photos',
     photosCount: '{n} photos',
     colCompany: 'Company',
@@ -1101,8 +1104,6 @@ export const en: Dict = {
     colTargetPrice: 'Target price',
     colStatus: 'Status',
     colPhotos: 'Photos',
-    confidentialTooltip:
-      'The seller requested company anonymity. Admins still see the full company name.',
     // Category filter + "group by category" view (SMART CATEGORY inventory UX).
     filterCategory: 'Category',
     allCategories: 'All categories',
@@ -1257,10 +1258,12 @@ export const en: Dict = {
     angrosist: 'Angrosist',
     palletclearance: 'PalletClearance',
     skalyou: 'SkalYou',
+    'euro-intermed': 'Euro Intermed',
   },
   intent: {
     buy: 'Buyer',
     sell: 'Seller',
+    triage: 'Triage',
   },
   role: {
     distributor: 'Distributor',
@@ -1283,6 +1286,9 @@ export const en: Dict = {
     sellerHeading: 'PalletClearance seller variant (with photo upload)',
     segAngrosist: 'Angrosist (buyer)',
     segSeller: 'PalletClearance (seller)',
+    segEuroIntermed: 'Euro Intermed (router)',
+    routerNote:
+      'The triage agent routes the conversation into the right flow (buy/sell).',
     copy: 'Copy code',
     copied: 'Copied',
     optionalNote: 'are optional — they default to angrosist/buy.',

@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { SortableHead } from '@/components/dashboard/SortableHead'
 import { cn } from '@/lib/utils'
-import { useT, formatRON, formatDate } from '@/lib/i18n'
+import { useT, useEnums, formatRON, formatDate } from '@/lib/i18n'
 import type { LeadSortKey, LeadSummary, PublicUser, SortDir } from '@/lib/api'
 
 interface Props {
@@ -26,12 +26,13 @@ interface Props {
 export function LeadTable({ leads, users, sort, dir, onSort }: Props) {
   const navigate = useNavigate()
   const { t, lang } = useT()
+  const { verticalLabel, intentLabel } = useEnums()
   const userById = new Map(users.map((u) => [u.id, u.name || u.email]))
 
   return (
     <div className="rounded-lg border overflow-hidden">
       <div className="overflow-x-auto">
-        <Table className="min-w-[860px]">
+        <Table className="min-w-[1020px]">
           <TableHeader>
             <TableRow>
               <SortableHead
@@ -42,6 +43,8 @@ export function LeadTable({ leads, users, sort, dir, onSort }: Props) {
                 dir={dir}
                 onSort={onSort}
               />
+              <TableHead>{t('pipeline.colSource')}</TableHead>
+              <TableHead>{t('pipeline.colType')}</TableHead>
               <TableHead>{t('pipeline.colProduct')}</TableHead>
               <TableHead>{t('pipeline.colQuantity')}</TableHead>
               <TableHead>{t('pipeline.colLocation')}</TableHead>
@@ -102,6 +105,29 @@ export function LeadTable({ leads, users, sort, dir, onSort }: Props) {
                     )}
                     {lead.company_name || t('common.none')}
                   </span>
+                  {lead.contact_name && (
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                      {lead.contact_name}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {lead.vertical ? (
+                    <Badge variant="secondary" className="whitespace-nowrap">
+                      {verticalLabel(lead.vertical)}
+                    </Badge>
+                  ) : (
+                    t('common.none')
+                  )}
+                </TableCell>
+                <TableCell>
+                  {lead.intent ? (
+                    <Badge variant="outline" className="whitespace-nowrap">
+                      {intentLabel(lead.intent)}
+                    </Badge>
+                  ) : (
+                    t('common.none')
+                  )}
                 </TableCell>
                 <TableCell>{lead.product_name || t('common.none')}</TableCell>
                 <TableCell className="whitespace-nowrap">

@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
-import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
 import { cn } from '@/lib/utils'
 import { useT, useEnums, formatRON, formatDate } from '@/lib/i18n'
 import type { ListingView } from '@/lib/api'
@@ -70,7 +69,6 @@ export function InventoryTable({ listings }: Props) {
                   <TableCell className="font-medium">
                     <span className="flex flex-wrap items-center gap-1.5">
                       {l.company_name || t('common.none')}
-                      {l.confidential && <ConfidentialBadge />}
                     </span>
                   </TableCell>
                   <TableCell>{l.category || t('common.none')}</TableCell>

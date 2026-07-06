@@ -33,7 +33,6 @@ import {
 } from '@/components/ui/table'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import { ListingStatusBadge } from '@/components/dashboard/ListingStatusBadge'
-import { ConfidentialBadge } from '@/components/dashboard/ConfidentialBadge'
 import { Banner } from '@/components/dashboard/Banner'
 import { DetailHeader } from '@/components/dashboard/DetailHeader'
 import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
@@ -58,6 +57,7 @@ import type {
   BuyerProfileView,
   LeadSibling,
   ListingDetailView,
+  ProductAttributes,
   PublicUser,
 } from '@/lib/api'
 
@@ -78,13 +78,52 @@ function Field({ label, value }: FieldProps) {
   )
 }
 
+/** Humanizes a snake_case attribute key: "expiry_date" → "Expiry date". */
+function humanizeKey(key: string): string {
+  const spaced = key.replace(/_/g, ' ').trim()
+  if (!spaced) return key
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * Renders the agent-captured free-form product attributes as muted
+ * "Label: value" rows (a definition list) after the typed fields. Skips
+ * empty/nullish values and renders nothing when there are no attributes, so a
+ * request without attributes looks exactly as before.
+ */
+function AttributesList({
+  attributes,
+  label,
+}: {
+  attributes?: ProductAttributes | null
+  label: string
+}) {
+  const entries = Object.entries(attributes ?? {}).filter(
+    ([, v]) => v != null && v !== '',
+  )
+  if (entries.length === 0) return null
+  return (
+    <div>
+      <dt className="mb-1.5 text-xs text-muted-foreground">{label}</dt>
+      <dl className="flex flex-col gap-1.5">
+        {entries.map(([k, v]) => (
+          <div key={k} className="flex flex-wrap gap-x-1.5 text-sm">
+            <dt className="text-muted-foreground">{humanizeKey(k)}:</dt>
+            <dd className="font-medium break-words">{String(v)}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
+
 /**
  * PalletClearance SELLER lot card (LeadDetail.listing). Mirrors the sourcing-
  * request card's card/dl styling so all typed requests look consistent. Renders
  * stock type, food/non-food (localized), category, quantity+unit, location,
- * country, expiry (formatted date), target price (formatted RON), the
- * confidential flag, a reused listing status badge, the documents list and a
- * photo-count badge. Optional empty fields are hidden via <Field>.
+ * country, expiry (formatted date), target price (formatted RON), any
+ * agent-captured attributes, a reused listing status badge, the documents list
+ * and a photo-count badge. Optional empty fields are hidden via <Field>.
  */
 function ListingCard({ listing }: { listing: ListingDetailView }) {
   const { t, lang } = useT()
@@ -96,7 +135,6 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
         <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           {t('detail.listing')}
           <ListingStatusBadge status={listing.status} />
-          {listing.confidential && <ConfidentialBadge />}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -134,6 +172,10 @@ function ListingCard({ listing }: { listing: ListingDetailView }) {
                 ? formatRON(lang, listing.target_price, t('common.none'))
                 : undefined
             }
+          />
+          <AttributesList
+            attributes={listing.attributes}
+            label={t('detail.attributes')}
           />
         </dl>
 
@@ -468,6 +510,17 @@ export function LeadDetail({ lead, users }: Props) {
             <span>
               {t('detail.metaCreated')}: {formatDate(lang, lead.created_at)}
             </span>
+            {(lead.contact_name || contact?.name) && (
+              <span className="inline-flex items-center gap-1.5">
+                <User className="size-3.5" />
+                {lead.contact_name || contact?.name}
+                {lead.contact_role && (
+                  <span className="text-muted-foreground/80">
+                    · {lead.contact_role}
+                  </span>
+                )}
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5">
               <User className="size-3.5" />
               {assigneeName
@@ -555,6 +608,10 @@ export function LeadDetail({ lead, users }: Props) {
                         value={t('detail.yes')}
                       />
                     )}
+                    <AttributesList
+                      attributes={sr?.attributes}
+                      label={t('detail.attributes')}
+                    />
                   </dl>
                 </div>
               ) : (
@@ -584,6 +641,10 @@ export function LeadDetail({ lead, users }: Props) {
                       value={t('detail.yes')}
                     />
                   )}
+                  <AttributesList
+                    attributes={sr?.attributes}
+                    label={t('detail.attributes')}
+                  />
                 </dl>
               )}
             </CardContent>
@@ -621,7 +682,12 @@ export function LeadDetail({ lead, users }: Props) {
               {t('detail.referenceGroup')}
             </h2>
 
-            {(company || contact || lead.phone || lead.email) && (
+            {(company ||
+              contact ||
+              lead.phone ||
+              lead.email ||
+              lead.contact_name ||
+              lead.contact_role) && (
               <Card>
                 <Accordion
                   type="multiple"
@@ -712,7 +778,11 @@ export function LeadDetail({ lead, users }: Props) {
                     </AccordionItem>
                   )}
 
-                  {(contact || lead.phone || lead.email) && (
+                  {(contact ||
+                    lead.phone ||
+                    lead.email ||
+                    lead.contact_name ||
+                    lead.contact_role) && (
                     <AccordionItem value="contact">
                       <AccordionTrigger>
                         <span className="flex items-center gap-2">
@@ -724,7 +794,11 @@ export function LeadDetail({ lead, users }: Props) {
                         <dl className="flex flex-col gap-3">
                           <Field
                             label={t('detail.contactName')}
-                            value={contact?.name}
+                            value={contact?.name || lead.contact_name}
+                          />
+                          <Field
+                            label={t('detail.contactRole')}
+                            value={lead.contact_role}
                           />
                           <Field
                             label={t('detail.contactPhone')}
