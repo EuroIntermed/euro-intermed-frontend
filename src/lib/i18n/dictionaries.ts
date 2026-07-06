@@ -678,6 +678,12 @@ export const ro = {
     consentNotice:
       'Prin continuarea conversației ești de acord cu prelucrarea datelor conform Politicii de confidențialitate.',
     consentPrivacyLink: 'Politica de confidențialitate',
+    // Shown on open when a FINISHED conversation is stored: continue it or start
+    // a fresh one instead of silently resuming.
+    resumePrompt:
+      'Ai o conversație anterioară. Vrei să o continui sau să începi una nouă?',
+    resumeContinue: 'Continuă',
+    resumeNew: 'Începe una nouă',
   },
   errors: {
     boundaryTitle: 'Ceva nu a funcționat',
@@ -1346,6 +1352,12 @@ export const en: Dict = {
     consentNotice:
       'By continuing the conversation you agree to the processing of your data in accordance with the Privacy Policy.',
     consentPrivacyLink: 'Privacy Policy',
+    // Shown on open when a FINISHED conversation is stored: continue it or start
+    // a fresh one instead of silently resuming.
+    resumePrompt:
+      'You have a previous conversation. Would you like to continue it or start a new one?',
+    resumeContinue: 'Continue',
+    resumeNew: 'Start new',
   },
   errors: {
     boundaryTitle: 'Something went wrong',

@@ -180,6 +180,8 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     sendImages,
     canAttach,
     intent: resolvedIntent,
+    restoredEnded,
+    startNew,
   } = useChat({
     // Per-flow storage so a buyer and a seller session don't collide on the host.
     convStorageKey: `${CONV_KEY}_${vertical ?? 'angrosist'}_${intent ?? 'buy'}`,
@@ -195,6 +197,11 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
   })
   const [input, setInput] = useState('')
   const [staged, setStaged] = useState<StagedImage[]>([])
+  // Whether the user has answered the "continue vs start new" prompt for the
+  // currently-stored finished conversation. Local + default false, so the card
+  // shows once per open session; a NEW finished conversation flips `restoredEnded`
+  // back on but we re-show only if the user hasn't chosen this session.
+  const [resumeChosen, setResumeChosen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const stagedRef = useRef<StagedImage[]>(staged)
@@ -264,6 +271,21 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
   }
 
   const canSend = (input.trim() !== '' && !typing) || staged.length > 0
+
+  // Show the "continue vs start new" card only when a FINISHED conversation is
+  // stored and the user hasn't answered yet this open session.
+  const showResumeChoice = restoredEnded && !resumeChosen
+
+  function handleResumeContinue() {
+    // Keep the stored conversation; just dismiss the card and show normal chat.
+    setResumeChosen(true)
+  }
+
+  function handleResumeNew() {
+    // Abandon the finished conversation and begin fresh, then dismiss the card.
+    startNew()
+    setResumeChosen(true)
+  }
 
   const panelStyle: React.CSSProperties = isMobile
     ? {
@@ -351,6 +373,65 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
           ×
         </button>
       </div>
+
+      {/* Continue-previous-or-start-new choice card. Shown INSIDE the open panel,
+          above the messages, only when a finished conversation is stored and the
+          user hasn't chosen yet this session. */}
+      {showResumeChoice && (
+        <div
+          role="group"
+          aria-label={t('chat.resumePrompt')}
+          style={{
+            margin: '12px 12px 0',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            border: `1px solid ${theme.border}`,
+            background: theme.assistantBubbleBg,
+            color: theme.assistantText,
+            flexShrink: 0,
+          }}
+        >
+          <p style={{ margin: '0 0 10px', lineHeight: 1.4 }}>
+            {t('chat.resumePrompt')}
+          </p>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleResumeContinue}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: 'none',
+                background: theme.accent,
+                color: theme.accentText,
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 600,
+              }}
+            >
+              {t('chat.resumeContinue')}
+            </button>
+            <button
+              type="button"
+              onClick={handleResumeNew}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: '10px',
+                border: `1px solid ${theme.inputBorder}`,
+                background: theme.inputBg,
+                color: theme.text,
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: 600,
+              }}
+            >
+              {t('chat.resumeNew')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div

@@ -83,6 +83,20 @@ interface UseChatResult {
   vertical: ChatVertical
   /** Resolved intent the UI can branch on (defaults to buy). */
   intent: ChatIntent
+  /**
+   * True only when a conversation id is stored AND that conversation is FINISHED
+   * (lead submitted / bot muted). Tells the UI to offer a "continue vs start new"
+   * choice on open instead of silently resuming. Cleared once the conversation is
+   * live again or after {@link startNew}.
+   */
+  restoredEnded: boolean
+  /**
+   * Abandon the stored (finished) conversation and start fresh: clears the id +
+   * token + finished flag, tears down the stream, and resets the message list to
+   * the greeting. After this `restoredEnded` is false and the next send opens a
+   * brand-new conversation.
+   */
+  startNew: () => void
 }
 
 /**
@@ -145,6 +159,16 @@ export function useChat({
   const [conversationToken, setConversationToken] = useState<string | null>(
     () => sessionStorage.getItem(tokenStorageKey),
   )
+  // Persists whether the RESTORED conversation was FINISHED (lead submitted /
+  // bot muted). Set from an assistant message with `ended === true`, cleared when
+  // a non-ended message arrives (the conversation is live again). On init we only
+  // treat it as ended if there IS a stored conversation to resume.
+  const endedStorageKey = `${convStorageKey}_ended`
+  const [restoredEnded, setRestoredEnded] = useState<boolean>(
+    () =>
+      sessionStorage.getItem(convStorageKey) != null &&
+      sessionStorage.getItem(endedStorageKey) === '1',
+  )
 
   const convIdRef = useRef<string | null>(sessionStorage.getItem(convStorageKey))
   const tokenRef = useRef<string | null>(sessionStorage.getItem(tokenStorageKey))
@@ -200,9 +224,19 @@ export function useChat({
       // A reply arrived → the conversation is alive; stop treating it as a stale
       // restored candidate.
       restoredConvRef.current = false
+      // Persist the finished flag so a returning visit knows to offer
+      // "continue vs start new". A non-ended reply means the flow is active
+      // again — clear it (a resumed-then-continued conversation is live).
+      if (msg.ended === true) {
+        sessionStorage.setItem(endedStorageKey, '1')
+        setRestoredEnded(true)
+      } else {
+        sessionStorage.removeItem(endedStorageKey)
+        setRestoredEnded(false)
+      }
       clearStallTimer()
     },
-    [clearStallTimer],
+    [clearStallTimer, endedStorageKey],
   )
 
   // Drop a conversation that the server no longer has (deleted/erased). Clears the
@@ -214,11 +248,33 @@ export function useChat({
     tokenRef.current = null
     setConversationId(null)
     setConversationToken(null)
+    setRestoredEnded(false)
     sessionStorage.removeItem(convStorageKey)
     sessionStorage.removeItem(tokenStorageKey)
+    sessionStorage.removeItem(endedStorageKey)
     unsubscribeRef.current?.()
     unsubscribeRef.current = null
-  }, [convStorageKey, tokenStorageKey])
+  }, [convStorageKey, tokenStorageKey, endedStorageKey])
+
+  // Abandon the stored (finished) conversation and begin fresh: drop the id +
+  // token + `_ended` flag from refs/state/storage, tear down any open stream,
+  // and clear the rendered messages back to just the greeting. After this,
+  // `restoredEnded` is false and the next send opens a brand-new conversation.
+  const startNew = useCallback(() => {
+    resetStaleConversation()
+    // Cancel any in-flight turn so a late reply can't render into the fresh chat.
+    awaitingReplyRef.current = false
+    clearStallTimer()
+    setTyping(false)
+    setExtracted({})
+    setLiveVertical(vertical)
+    setLiveIntent(intent)
+    // Revoke any staged image previews before wiping the message list.
+    messagesRef.current.forEach((m) =>
+      m.images?.forEach((im) => URL.revokeObjectURL(im.previewUrl)),
+    )
+    setMessages([{ id: nextId('a'), role: 'assistant', content: greeting }])
+  }, [resetStaleConversation, clearStallTimer, greeting, vertical, intent])
 
   // Opens (or re-opens after a drop) the SSE stream for this conversation. The
   // stream is the only path that delivers replies/typing. EventSource auto-
@@ -454,5 +510,7 @@ export function useChat({
     conversationToken,
     vertical: liveVertical,
     intent: liveIntent,
+    restoredEnded,
+    startNew,
   }
 }

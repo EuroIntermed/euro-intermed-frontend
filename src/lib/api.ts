@@ -1224,6 +1224,12 @@ export async function updateTask(id: string, patch: TaskUpdate): Promise<Task> {
 export interface StreamMessage {
   reply: string
   state: string
+  /**
+   * True when the conversation is finished (lead submitted, bot muted via
+   * handoff, or a polite CUI stop) — the UI offers "continue vs start new" on the
+   * next open. Absent on the wire is treated as `false` (still active).
+   */
+  ended?: boolean
   extracted: ExtractedFields
   /** Conversation's current flow — lets the UI react to a mid-chat re-route. */
   vertical?: string
@@ -1262,6 +1268,8 @@ interface StreamEventData {
   type?: string
   reply?: string
   state?: string
+  /** Conversation-finished flag (see StreamMessage.ended); absent = false. */
+  ended?: boolean
   extracted?: ExtractedFields | null
   error?: string
   vertical?: string
@@ -1306,6 +1314,8 @@ export function subscribeToConversation(
       handlers.onMessage?.({
         reply: data.reply ?? data.Reply ?? '',
         state: data.state ?? data.State ?? '',
+        // Degrade gracefully if the backend hasn't shipped `ended` yet.
+        ended: data.ended === true,
         extracted: data.extracted ?? data.Extracted ?? {},
         vertical: data.vertical,
         intent: data.intent,
