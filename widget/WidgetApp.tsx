@@ -192,6 +192,7 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     errorMessage: t('chat.networkError'),
     timeoutMessage: t('chat.streamTimeout'),
     resetMessage: t('chat.sessionReset'),
+    photosUploadedMessage: t('chat.photosUploaded'),
     vertical,
     intent,
   })
@@ -259,12 +260,17 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     const text = input.trim()
     const hasImages = staged.length > 0
     if (!text && !hasImages) return
-    if (text && !typing) {
+    // Exactly one agent turn per action: if we dispatch the text turn, the
+    // photos upload WITHOUT firing their own turn (the text turn + the backend's
+    // injected photo count cover the reply). If there's no text turn, the photos
+    // fire the turn themselves so a photos-only send never goes silent.
+    const textSent = text !== '' && !typing
+    if (textSent) {
       send(text)
       setInput('')
     }
     if (hasImages) {
-      sendImages(staged.map((s) => s.file))
+      sendImages(staged.map((s) => s.file), { fireTurn: !textSent })
       staged.forEach((s) => URL.revokeObjectURL(s.previewUrl))
       setStaged([])
     }

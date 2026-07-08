@@ -660,6 +660,10 @@ export const ro = {
     photoCountOne: '1 fotografie încărcată',
     photoCountOther: '{n} fotografii încărcate',
     photoHint: 'Trimiteți un mesaj pentru a începe, apoi adăugați fotografii.',
+    // Synthetic user message dispatched as ONE agent turn after photos finish
+    // uploading, so the agent acknowledges them ("got them, next step"). The
+    // image bubble is the real message; this is only the turn's text payload.
+    photosUploaded: 'Am încărcat fotografiile.',
     // Embeddable widget surface (the widget has no LanguageProvider; it picks a
     // language from its config). Kept here so RO/EN stay in one place.
     widgetTitle: 'Euro Intermed',
@@ -1338,6 +1342,7 @@ export const en: Dict = {
     photoCountOne: '1 photo uploaded',
     photoCountOther: '{n} photos uploaded',
     photoHint: 'Send a message to start, then add photos.',
+    photosUploaded: "I've uploaded the photos.",
     widgetTitle: 'Euro Intermed',
     widgetLauncher: 'Chat with Euro Intermed',
     widgetClose: 'Close chat',

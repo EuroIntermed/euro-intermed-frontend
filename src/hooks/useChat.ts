@@ -52,6 +52,12 @@ interface UseChatOptions {
    * to resend. Falls back to `errorMessage` when omitted.
    */
   resetMessage?: string
+  /**
+   * Localized text used as the user's message when a batch of photos finishes
+   * uploading, so the agent gets a turn to react (the image bubble is the real
+   * message; this is just the turn's text payload). Defaults to the RO string.
+   */
+  photosUploadedMessage?: string
   /** Flow vertical — sent on the first message only. Defaults to angrosist. */
   vertical?: ChatVertical
   /** Flow intent — sent on the first message only. Defaults to buy. */
@@ -68,8 +74,14 @@ interface UseChatResult {
   /**
    * Attach a group of images as a single user message and upload each to the
    * conversation. No-op until a conversation exists (see {@link canAttach}).
+   *
+   * Once the uploads settle, this fires ONE agent turn (with no extra text
+   * bubble — the image bubble is the user's message) so the agent reacts to the
+   * photos. Pass `{ fireTurn: false }` when the caller is already dispatching a
+   * turn for the same user action (e.g. text sent alongside the photos), to keep
+   * the invariant of exactly one agent turn per action.
    */
-  sendImages: (files: File[]) => void
+  sendImages: (files: File[], opts?: { fireTurn?: boolean }) => void
   /** True once a conversation id exists, so photos can be uploaded/attached. */
   canAttach: boolean
   /** The active conversation id once the first message has been sent (else null). */
@@ -134,6 +146,7 @@ export function useChat({
   errorMessage = 'A apărut o eroare. Vă rugăm încercați din nou.',
   timeoutMessage,
   resetMessage,
+  photosUploadedMessage = 'Am încărcat fotografiile.',
   vertical = 'angrosist',
   intent = 'buy',
 }: UseChatOptions): UseChatResult {
@@ -332,15 +345,22 @@ export function useChat({
     [appendAssistant, clearStallTimer, errorMessage, resetMessage, resetStaleConversation],
   )
 
-  const send = useCallback(
-    (raw: string) => {
-      const text = raw.trim()
+  // Dispatch a single agent turn: (optionally) render the optimistic user
+  // bubble, arm the stall timer, POST the message, capture the conversation
+  // id/token, and open the SSE stream. `addBubble` defaults to true (the text
+  // path); the photos path passes false because the image bubble already
+  // represents the user's message.
+  const dispatchTurn = useCallback(
+    (content: string, opts?: { addBubble?: boolean }) => {
+      const text = content.trim()
       if (!text || typing) return
 
-      setMessages((prev) => [
-        ...prev,
-        { id: nextId('u'), role: 'user', content: text },
-      ])
+      if (opts?.addBubble ?? true) {
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId('u'), role: 'user', content: text },
+        ])
+      }
       setTyping(true)
 
       // Mark this turn as awaiting an SSE reply and (re)arm the stall timer.
@@ -423,6 +443,13 @@ export function useChat({
     ],
   )
 
+  // Thin wrapper preserving the original `send` signature/behavior: a text turn
+  // that renders the optimistic user bubble.
+  const send = useCallback(
+    (raw: string) => dispatchTurn(raw, { addBubble: true }),
+    [dispatchTurn],
+  )
+
   // Flip a single image's upload status inside its message.
   const setImageStatus = useCallback(
     (messageId: string, imageId: string, status: ChatImageStatus) => {
@@ -442,12 +469,18 @@ export function useChat({
     [],
   )
 
-  // Attach picked images as ONE grouped user bubble, then upload each to the
-  // conversation's photo endpoint. The bubble renders immediately (optimistic);
-  // each tile shows its own uploading/done/error state. Photos go to a dedicated
-  // endpoint (not the agent), so this does not post a chat turn or await SSE.
+  // Attach picked images as ONE grouped user bubble, upload each to the
+  // conversation's photo endpoint, then fire a SINGLE agent turn so the agent
+  // reacts to the photos. The bubble renders immediately (optimistic); each tile
+  // shows its own uploading/done/error state. Photos go to a dedicated endpoint
+  // (not the agent), but the images ARE the user's message — so once they settle
+  // we dispatch a turn with `addBubble: false` (the image bubble is the message).
+  //
+  // Pass `{ fireTurn: false }` when the caller already dispatched a turn for the
+  // same user action (text + photos together), keeping exactly one turn per
+  // action. If every upload fails, no turn is fired.
   const sendImages = useCallback(
-    (files: File[]) => {
+    (files: File[], opts?: { fireTurn?: boolean }) => {
       const convId = convIdRef.current
       if (!convId) return
       const pairs = files
@@ -473,18 +506,28 @@ export function useChat({
         },
       ])
 
-      pairs.forEach(({ file, image }) => {
-        void (async () => {
-          try {
-            await uploadConversationPhoto(convId, file, tokenRef.current)
-            setImageStatus(messageId, image.id, 'done')
-          } catch {
-            setImageStatus(messageId, image.id, 'error')
-          }
-        })()
-      })
+      void (async () => {
+        const results = await Promise.all(
+          pairs.map(async ({ file, image }) => {
+            try {
+              await uploadConversationPhoto(convId, file, tokenRef.current)
+              setImageStatus(messageId, image.id, 'done')
+              return true
+            } catch {
+              setImageStatus(messageId, image.id, 'error')
+              return false
+            }
+          }),
+        )
+        // Fire the agent turn only when the photos are the sole action (no text
+        // turn already dispatched) and at least one upload landed on the server.
+        const anySucceeded = results.some(Boolean)
+        if ((opts?.fireTurn ?? true) && anySucceeded) {
+          dispatchTurn(photosUploadedMessage, { addBubble: false })
+        }
+      })()
     },
-    [setImageStatus],
+    [setImageStatus, dispatchTurn, photosUploadedMessage],
   )
 
   // Close the EventSource, clear timers, and revoke image preview URLs on unmount.
