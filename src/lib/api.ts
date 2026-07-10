@@ -39,6 +39,18 @@ export function getPrivacyUrl(): string {
   return typeof fromEnv === 'string' && fromEnv ? fromEnv : '#'
 }
 
+/**
+ * Resolves the external monitoring dashboard URL linked from the Platform-health
+ * board (uptime / API error rate are measured in Cloud Monitoring, not in-app).
+ * Comes from the build-time `VITE_MONITORING_URL`; returns an empty string when
+ * unset so the board renders the note without a dangling link. No host is baked
+ * into source.
+ */
+export function getMonitoringUrl(): string {
+  const fromEnv = import.meta.env.VITE_MONITORING_URL
+  return typeof fromEnv === 'string' && fromEnv ? fromEnv : ''
+}
+
 export interface ExtractedFields {
   product_name?: string
   quantity?: number
@@ -1142,10 +1154,208 @@ export interface Kpis {
   delivery_locations: LabelCount[]
   origin_countries: LabelCount[]
   avg_first_response_seconds: number | null
+  /**
+   * AI-quality ratios (0..1), computed from `analytics_events` (KPI_PLAN §3).
+   * Each is null until enough events exist to compute it; the UI renders "—"
+   * for null (never a misleading 0%). `extraction_completeness` = share of
+   * expected fields the agent captured; `anaf_success_rate` = successful ANAF
+   * verifications / attempts; `escalation_rate` = handed-off / total sessions.
+   */
+  extraction_completeness: number | null
+  anaf_success_rate: number | null
+  escalation_rate: number | null
 }
 
 export async function getKpis(): Promise<Kpis> {
   return authedFetch<Kpis>('/kpis')
+}
+
+// --- KPI action boards (KPI_PLAN §E.2) -------------------------------------
+
+/**
+ * LeadRef is the compact lead handle listed on the action boards (openapi
+ * LeadRef). `hours_since_created` is server-computed age in hours; the UI
+ * deep-links each row to the lead detail via `id`.
+ */
+export interface LeadRef {
+  id: string
+  company_name: string
+  product_name: string
+  status: string
+  created_at: string
+  hours_since_created: number
+}
+
+/** `GET /api/kpis/today-angrosist` — the "Today – Angrosist" action board. */
+export interface TodayAngrosist {
+  qualified_today: number
+  qualified_leads: LeadRef[]
+  offers_to_send: LeadRef[]
+  orders_confirmed_today: number
+  alerts: LeadRef[]
+}
+
+export async function getTodayAngrosist(): Promise<TodayAngrosist> {
+  return authedFetch<TodayAngrosist>('/kpis/today-angrosist')
+}
+
+/** One aging bucket of the Clearance stock (a label + its listing count). */
+export interface AgingBucket {
+  label: string
+  count: number
+}
+
+/** Lower-funnel metrics for the "Portfolio – Clearance" board. */
+export interface ClearanceFunnel {
+  sellers_registered: number
+  stock_completeness: number | null
+  active_buyers: number
+  match_rate: number | null
+  avg_days_to_place: number | null
+  recurring_buyers_pct: number | null
+}
+
+/** `GET /api/kpis/portfolio-clearance` — the "Portfolio – Clearance" board. */
+export interface PortfolioClearance {
+  active_listings: number
+  active_listings_value: number
+  aging_buckets: AgingBucket[]
+  active_buyers: number
+  active_buyers_target: number | null
+  funnel: ClearanceFunnel
+}
+
+export async function getPortfolioClearance(): Promise<PortfolioClearance> {
+  return authedFetch<PortfolioClearance>('/kpis/portfolio-clearance')
+}
+
+/** `GET /api/kpis/month` — the "This month" (all-verticals) board. */
+export interface MonthKpis {
+  qualified_this_month: number
+  qualified_monthly_target: number | null
+  gross_turnover: number | null
+  vat_cap_ron: number | null
+  margin_revenue: number | null
+  margin_revenue_plan_ron: number | null
+  top5_client_concentration: number | null
+}
+
+export async function getMonthKpis(): Promise<MonthKpis> {
+  return authedFetch<MonthKpis>('/kpis/month')
+}
+
+/** `GET /api/kpis/platform-health` — the "Platform health" board. */
+export interface PlatformHealth {
+  open_incidents: number
+  closed_incidents: number
+  last_backup_at: string | null
+  last_restore_test_at: string | null
+  /** Always null — uptime is measured externally (see `monitoring_note`). */
+  uptime_percent: number | null
+  /** Always null — error rate is measured externally (see `monitoring_note`). */
+  api_error_percent: number | null
+  monitoring_note: string
+}
+
+export async function getPlatformHealth(): Promise<PlatformHealth> {
+  return authedFetch<PlatformHealth>('/kpis/platform-health')
+}
+
+// --- Manual commercial + financial entry (KPI_PLAN §B/§C) ------------------
+
+export type TransactionVertical = 'angrosist' | 'palletclearance'
+export type TransactionStage = 'offer' | 'order' | 'delivery' | 'paid'
+export type MarginType = 'intermediation' | 'resale'
+
+/**
+ * TransactionCreate mirrors `POST /api/transactions`: one manual commercial
+ * data point feeding the §B lower funnel + §C margin/turnover KPIs. `vertical`,
+ * `stage` and `is_recurring` are required; money/margin/company/on-time fields
+ * are optional and omitted when left blank.
+ */
+export interface TransactionCreate {
+  lead_id?: string
+  vertical: TransactionVertical
+  stage: TransactionStage
+  value_eur?: number
+  cost_eur?: number
+  margin_type?: MarginType
+  client_company_id?: string
+  is_recurring: boolean
+  delivered_on_time?: boolean
+}
+
+/** Records a manual transaction. 201 on success. */
+export async function createTransaction(
+  body: TransactionCreate,
+): Promise<void> {
+  await authedFetch<void>('/transactions', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * FinancialInputs mirrors `PUT /api/financial-inputs`: the pure §C.2 accounting
+ * row for one month (upsert keyed by `period_month`, `"YYYY-MM"`). Every money
+ * field is optional and omitted when left blank.
+ */
+export interface FinancialInputs {
+  period_month: string
+  gross_turnover?: number
+  margin_revenue?: number
+  cash_in?: number
+  cash_out?: number
+  marketing_spend?: number
+  maintenance_cost?: number
+  opex?: number
+}
+
+/** Upserts one month's financial inputs. 200 on success. */
+export async function putFinancialInputs(
+  body: FinancialInputs,
+): Promise<void> {
+  await authedFetch<void>('/financial-inputs', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+// --- CSV export (KPI_PLAN §E.3) --------------------------------------------
+
+export type ExportType = 'events' | 'leads'
+
+/**
+ * Fetches a filtered CSV export (`GET /api/kpis/export`) as a Blob the caller
+ * turns into a browser download. Carries the staff Bearer token like every
+ * authed call; on 401 it clears the session + fires the unauthorized handler,
+ * and surfaces any other non-2xx as an {@link ApiError}. `from`/`to` are
+ * inclusive `YYYY-MM-DD` dates.
+ */
+export async function exportKpiCsv(
+  type: ExportType,
+  from: string,
+  to: string,
+): Promise<Blob> {
+  const token = getStoredToken()
+  const params = new URLSearchParams({ type, from, to })
+  const res = await fetch(`${getApiBase()}/api/kpis/export?${params.toString()}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+
+  if (res.status === 401) {
+    clearStoredAuth()
+    onUnauthorized?.()
+    throw new ApiError(
+      401,
+      'UNAUTHENTICATED',
+      'Sesiune expirată. Autentifică-te din nou.',
+    )
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, 'INTERNAL', `Eroare ${res.status}`)
+  }
+  return res.blob()
 }
 
 // --- Tasks / follow-ups ----------------------------------------------------

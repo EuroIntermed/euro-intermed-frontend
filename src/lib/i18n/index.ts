@@ -16,6 +16,9 @@ export { LanguageProvider } from './LanguageProvider'
 export { useT, useEnums, type Option } from './useT'
 export {
   formatRON,
+  formatEUR,
+  formatPercent,
+  formatCount,
   formatDate,
   formatDateTime,
   formatDuration,

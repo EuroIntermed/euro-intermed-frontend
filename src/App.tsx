@@ -71,6 +71,26 @@ const WidgetPage = lazyWithReload(() =>
 const UsersPage = lazyWithReload(() =>
   import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
+const TodayAngrosistPage = lazyWithReload(() =>
+  import('@/pages/kpi/TodayAngrosistPage').then((m) => ({
+    default: m.TodayAngrosistPage,
+  })),
+)
+const PortfolioClearancePage = lazyWithReload(() =>
+  import('@/pages/kpi/PortfolioClearancePage').then((m) => ({
+    default: m.PortfolioClearancePage,
+  })),
+)
+const ThisMonthPage = lazyWithReload(() =>
+  import('@/pages/kpi/ThisMonthPage').then((m) => ({
+    default: m.ThisMonthPage,
+  })),
+)
+const PlatformHealthPage = lazyWithReload(() =>
+  import('@/pages/kpi/PlatformHealthPage').then((m) => ({
+    default: m.PlatformHealthPage,
+  })),
+)
 const LoginPage = lazyWithReload(() =>
   import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
@@ -119,6 +139,19 @@ function AppRoutes() {
           />
           <Route path="/dashboard/handoffs" element={<HandoffsPage />} />
           <Route path="/dashboard/tasks" element={<TasksPage />} />
+          <Route
+            path="/dashboard/kpi/today"
+            element={<TodayAngrosistPage />}
+          />
+          <Route
+            path="/dashboard/kpi/clearance"
+            element={<PortfolioClearancePage />}
+          />
+          <Route path="/dashboard/kpi/month" element={<ThisMonthPage />} />
+          <Route
+            path="/dashboard/kpi/health"
+            element={<PlatformHealthPage />}
+          />
           <Route path="/dashboard/users" element={<UsersPage />} />
           <Route path="/dashboard/widget" element={<WidgetPage />} />
           {/* Back-compat: the widget hub used to live at /test-widget. */}

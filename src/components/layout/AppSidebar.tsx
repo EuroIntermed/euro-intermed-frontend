@@ -1,13 +1,17 @@
 import { Link, useLocation } from 'react-router-dom'
 import {
+  Activity,
   Boxes,
   Building2,
+  CalendarRange,
   ChevronsUpDown,
   Code2,
   Inbox,
   LayoutDashboard,
   ListTodo,
   LogOut,
+  PackageX,
+  Sun,
   UserCog,
   Workflow,
 } from 'lucide-react'
@@ -56,6 +60,7 @@ const SECTION_PREFIXES = [
   '/dashboard/companies',
   '/dashboard/handoffs',
   '/dashboard/tasks',
+  '/dashboard/kpi',
   '/dashboard/users',
   '/dashboard/widget',
 ]
@@ -76,6 +81,18 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard/companies', labelKey: 'nav.companies', icon: Building2 },
   { to: '/dashboard/handoffs', labelKey: 'nav.handoffs', icon: Inbox },
   { to: '/dashboard/tasks', labelKey: 'nav.tasks', icon: ListTodo },
+]
+
+// KPI action boards (KPI_PLAN §E.2) — analytics, grouped away from the daily nav.
+const KPI_ITEMS: NavItem[] = [
+  { to: '/dashboard/kpi/today', labelKey: 'nav.kpiToday', icon: Sun },
+  {
+    to: '/dashboard/kpi/clearance',
+    labelKey: 'nav.kpiClearance',
+    icon: PackageX,
+  },
+  { to: '/dashboard/kpi/month', labelKey: 'nav.kpiMonth', icon: CalendarRange },
+  { to: '/dashboard/kpi/health', labelKey: 'nav.kpiHealth', icon: Activity },
 ]
 
 // Admin / configuration — separated from the daily workflow nav.
@@ -134,6 +151,28 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {NAV_ITEMS.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.to)}
+                    tooltip={t(item.labelKey)}
+                  >
+                    <Link to={item.to}>
+                      <item.icon />
+                      <span>{t(item.labelKey)}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>{t('nav.kpiGroup')}</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {KPI_ITEMS.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
                     asChild

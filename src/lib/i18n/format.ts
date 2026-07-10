@@ -24,6 +24,45 @@ export function formatRON(
   }).format(v)
 }
 
+/** Compact EUR currency formatter, locale-aware. `none` is the empty marker. */
+export function formatEUR(
+  lang: Lang,
+  v: number | null | undefined,
+  none = '—',
+): string {
+  if (v == null) return none
+  return new Intl.NumberFormat(LOCALE_TAG[lang], {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(v)
+}
+
+/**
+ * Renders a 0..1 ratio as a whole-number percentage (e.g. `0.42` → `"42%"`).
+ * Null/absent/non-finite values render the empty marker `none`, so a KPI that
+ * has not been computed yet shows "—" rather than a misleading `0%`.
+ */
+export function formatPercent(
+  v: number | null | undefined,
+  none = '—',
+): string {
+  if (v == null || !Number.isFinite(v)) return none
+  return `${Math.round(v * 100)}%`
+}
+
+/**
+ * Renders a whole number, or the empty marker `none` when the value is
+ * null/absent — so a KPI card shows "—" instead of a misleading `0`.
+ */
+export function formatCount(
+  v: number | null | undefined,
+  none = '—',
+): string {
+  if (v == null || !Number.isFinite(v)) return none
+  return String(v)
+}
+
 /**
  * Humanizes a whole-second duration: `< 60s` renders as `"45s"`, otherwise as
  * `"2m 30s"`. The unit words come from the dictionary via the two `tpl` strings

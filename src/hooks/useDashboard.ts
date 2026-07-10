@@ -13,6 +13,10 @@ import {
   listListingPhotos,
   listCategories,
   getKpis,
+  getTodayAngrosist,
+  getPortfolioClearance,
+  getMonthKpis,
+  getPlatformHealth,
   listTasks,
   ApiError,
   type LeadFilters,
@@ -163,6 +167,73 @@ export function useKpis() {
     queryFn: async () => {
       try {
         return await getKpis()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return null
+        throw err
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * "Today – Angrosist" action board (KPI_PLAN §E.2). Guarded on the backend; on
+ * 403 the hook resolves to null so the board hides instead of erroring.
+ */
+export function useTodayAngrosist() {
+  return useQuery({
+    queryKey: ['kpi-today-angrosist'],
+    queryFn: async () => {
+      try {
+        return await getTodayAngrosist()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return null
+        throw err
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
+/** "Portfolio – Clearance" action board. 403 → null (board hides). */
+export function usePortfolioClearance() {
+  return useQuery({
+    queryKey: ['kpi-portfolio-clearance'],
+    queryFn: async () => {
+      try {
+        return await getPortfolioClearance()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return null
+        throw err
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
+/** "This month" (all-verticals) board. 403 → null (board hides). */
+export function useMonthKpis() {
+  return useQuery({
+    queryKey: ['kpi-month'],
+    queryFn: async () => {
+      try {
+        return await getMonthKpis()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return null
+        throw err
+      }
+    },
+    staleTime: 60_000,
+  })
+}
+
+/** "Platform health" board. 403 → null (board hides). */
+export function usePlatformHealth() {
+  return useQuery({
+    queryKey: ['kpi-platform-health'],
+    queryFn: async () => {
+      try {
+        return await getPlatformHealth()
       } catch (err) {
         if (err instanceof ApiError && err.status === 403) return null
         throw err
