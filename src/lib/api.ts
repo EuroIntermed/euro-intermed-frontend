@@ -1261,6 +1261,56 @@ export async function getPlatformHealth(): Promise<PlatformHealth> {
   return authedFetch<PlatformHealth>('/kpis/platform-health')
 }
 
+// --- KPI settings (runtime targets + alert thresholds, admin-only) ---------
+
+/**
+ * Wire type of one KPI setting, telling the UI how to render/validate it:
+ * `int` (whole number), `number` (decimal), `ratio` (0..1 — rendered as a
+ * percent), `url` (optional valid URL).
+ */
+export type KpiSettingType = 'int' | 'number' | 'ratio' | 'url'
+
+/**
+ * KpiSetting mirrors one row of `GET /api/kpis/settings`: the runtime override
+ * for a KPI target / alert threshold that used to be env-var only. `value` is
+ * the current DB override (null when none is set), `default` is the env
+ * fallback (shown as the input placeholder), `effective` is what actually
+ * applies now (`value ?? default`). All three are strings on the wire; the UI
+ * parses them per `type`.
+ */
+export interface KpiSetting {
+  key: string
+  type: KpiSettingType
+  value: string | null
+  default: string | null
+  effective: string | null
+}
+
+/**
+ * Fetches the editable KPI targets + alert thresholds (admin-only on the
+ * backend). Returns the flat setting list; the settings page groups them by key.
+ */
+export async function getKpiSettings(): Promise<KpiSetting[]> {
+  const res = await authedFetch<{ settings: KpiSetting[] }>('/kpis/settings')
+  return res.settings ?? []
+}
+
+/**
+ * Persists KPI setting overrides (admin-only). The body is a FLAT object of
+ * ONLY the changed keys (`{ [key]: string }`); sending `""` for a key CLEARS its
+ * override (reverts to the env default). Returns the same shape as
+ * {@link getKpiSettings} (the full, updated list).
+ */
+export async function putKpiSettings(
+  partial: Record<string, string>,
+): Promise<KpiSetting[]> {
+  const res = await authedFetch<{ settings: KpiSetting[] }>('/kpis/settings', {
+    method: 'PUT',
+    body: JSON.stringify(partial),
+  })
+  return res.settings ?? []
+}
+
 // --- Manual commercial + financial entry (KPI_PLAN §B/§C) ------------------
 
 export type TransactionVertical = 'angrosist' | 'palletclearance'

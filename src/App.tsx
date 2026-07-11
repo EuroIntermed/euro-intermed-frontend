@@ -91,6 +91,11 @@ const PlatformHealthPage = lazyWithReload(() =>
     default: m.PlatformHealthPage,
   })),
 )
+const KpiSettingsPage = lazyWithReload(() =>
+  import('@/pages/kpi/KpiSettingsPage').then((m) => ({
+    default: m.KpiSettingsPage,
+  })),
+)
 const LoginPage = lazyWithReload(() =>
   import('@/pages/LoginPage').then((m) => ({ default: m.LoginPage })),
 )
@@ -151,6 +156,10 @@ function AppRoutes() {
           <Route
             path="/dashboard/kpi/health"
             element={<PlatformHealthPage />}
+          />
+          <Route
+            path="/dashboard/kpi/settings"
+            element={<KpiSettingsPage />}
           />
           <Route path="/dashboard/users" element={<UsersPage />} />
           <Route path="/dashboard/widget" element={<WidgetPage />} />

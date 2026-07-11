@@ -11,6 +11,7 @@ import {
   ListTodo,
   LogOut,
   PackageX,
+  SlidersHorizontal,
   Sun,
   UserCog,
   Workflow,
@@ -93,6 +94,12 @@ const KPI_ITEMS: NavItem[] = [
   },
   { to: '/dashboard/kpi/month', labelKey: 'nav.kpiMonth', icon: CalendarRange },
   { to: '/dashboard/kpi/health', labelKey: 'nav.kpiHealth', icon: Activity },
+  {
+    to: '/dashboard/kpi/settings',
+    labelKey: 'nav.kpiSettings',
+    icon: SlidersHorizontal,
+    adminOnly: true,
+  },
 ]
 
 // Admin / configuration — separated from the daily workflow nav.
@@ -106,6 +113,7 @@ export function AppSidebar() {
   const { user, logout, isAdmin } = useAuth()
   const { t } = useT()
 
+  const kpiItems = KPI_ITEMS.filter((i) => !i.adminOnly || isAdmin)
   const adminItems = ADMIN_ITEMS.filter((i) => !i.adminOnly || isAdmin)
 
   function isActive(to: string) {
@@ -172,7 +180,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>{t('nav.kpiGroup')}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {KPI_ITEMS.map((item) => (
+              {kpiItems.map((item) => (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
                     asChild

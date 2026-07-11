@@ -17,6 +17,7 @@ import {
   getPortfolioClearance,
   getMonthKpis,
   getPlatformHealth,
+  getKpiSettings,
   listTasks,
   ApiError,
   type LeadFilters,
@@ -239,6 +240,22 @@ export function usePlatformHealth() {
         throw err
       }
     },
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * Editable KPI targets + alert thresholds (admin-only). `GET /api/kpis/settings`
+ * is admin-gated on the backend, so we only fetch it for admins; non-admins get
+ * a stable empty result and the page renders its not-authorized state without
+ * firing a request that would 403.
+ */
+export function useKpiSettings() {
+  const { isAdmin } = useAuth()
+  return useQuery({
+    queryKey: ['kpi-settings'],
+    enabled: isAdmin,
+    queryFn: getKpiSettings,
     staleTime: 60_000,
   })
 }
