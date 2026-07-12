@@ -1,6 +1,9 @@
 import { test, expect, type Page } from '@playwright/test'
 import { SITES, isHttpsBackend } from './_env'
 
+/** Per-navigation budget so a slow/blocked site fails fast and clearly. */
+const NAV_TIMEOUT = 30_000
+
 /**
  * Marketing-site smoke. For each of the three public sites we assert the
  * concrete "widget shows on the marketing sites" gap check:
@@ -21,34 +24,39 @@ async function widgetLoaderPresent(page: Page): Promise<{
   present: boolean
   widgetJsSrc: string | null
 }> {
-  // Give a deferred / tag-manager injection a moment to run.
-  await page
-    .waitForFunction(
-      (sel) =>
-        !!document.querySelector('script[src*="widget.js"]') ||
-        !!document.querySelector(sel) ||
-        !!(window as unknown as Record<string, unknown>).AngrosistChat,
-      WIDGET_WRAPPER,
-      { timeout: 15_000 },
+  try {
+    // Give a deferred / tag-manager injection a moment to run.
+    await page
+      .waitForFunction(
+        (sel) =>
+          !!document.querySelector('script[src*="widget.js"]') ||
+          !!document.querySelector(sel) ||
+          !!(window as unknown as Record<string, unknown>).AngrosistChat,
+        WIDGET_WRAPPER,
+        { timeout: 10_000 },
+      )
+      .catch(() => {
+        /* fall through — assertions below report the miss */
+      })
+
+    const widgetJsSrc = await page
+      .locator('script[src*="widget.js"]')
+      .first()
+      .getAttribute('src')
+      .catch(() => null)
+
+    const wrapperPresent = (await page.locator(WIDGET_WRAPPER).count()) > 0
+    const globalPresent = await page.evaluate(
+      () => !!(window as unknown as Record<string, unknown>).AngrosistChat,
     )
-    .catch(() => {
-      /* fall through — assertions below report the miss */
-    })
 
-  const widgetJsSrc = await page
-    .locator('script[src*="widget.js"]')
-    .first()
-    .getAttribute('src')
-    .catch(() => null)
-
-  const wrapperPresent = (await page.locator(WIDGET_WRAPPER).count()) > 0
-  const globalPresent = await page.evaluate(
-    () => !!(window as unknown as Record<string, unknown>).AngrosistChat,
-  )
-
-  return {
-    present: !!widgetJsSrc || wrapperPresent || globalPresent,
-    widgetJsSrc,
+    return {
+      present: !!widgetJsSrc || wrapperPresent || globalPresent,
+      widgetJsSrc,
+    }
+  } catch {
+    // Page/context closed (e.g. hit the test budget) — report a clean miss.
+    return { present: false, widgetJsSrc: null }
   }
 }
 
@@ -56,9 +64,11 @@ for (const site of SITES) {
   test.describe(`site: ${site.name}`, () => {
     test('loads, embeds the widget, and points at an https backend', async ({
       page,
-      request,
     }) => {
-      const resp = await page.goto(site.url, { waitUntil: 'domcontentloaded' })
+      const resp = await page.goto(site.url, {
+        waitUntil: 'domcontentloaded',
+        timeout: NAV_TIMEOUT,
+      })
       expect(resp, 'no navigation response').not.toBeNull()
       expect(resp!.status(), `unexpected status for ${site.url}`).toBeLessThan(
         400,
@@ -90,7 +100,7 @@ for (const site of SITES) {
           `widget.js is not served from https: ${absSrc}`,
         ).toBeTruthy()
 
-        const jsResp = await request.get(absSrc)
+        const jsResp = await page.request.get(absSrc)
         expect(
           jsResp.status(),
           `widget.js did not load: ${absSrc}`,
@@ -113,7 +123,9 @@ for (const site of SITES) {
       }
 
       // robots.txt resolves (served, not a 5xx).
-      const robots = await request.get(new URL('/robots.txt', site.url).toString())
+      const robots = await page.request.get(
+        new URL('/robots.txt', site.url).toString(),
+      )
       expect(
         robots.status(),
         'robots.txt returned a server error',
@@ -130,7 +142,9 @@ for (const site of SITES) {
       if ((await privacyLink.count()) > 0) {
         const href = await privacyLink.getAttribute('href')
         if (href) {
-          const privResp = await request.get(new URL(href, site.url).toString())
+          const privResp = await page.request.get(
+            new URL(href, site.url).toString(),
+          )
           await expect
             .soft(
               privResp.status(),
