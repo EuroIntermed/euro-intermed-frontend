@@ -16,5 +16,12 @@
 *.tsbuildinfo
 .vite/
 
+# Playwright (e2e smoke) — artifacts + downloaded browsers
+/test-results/
+/playwright-report/
+/blob-report/
+/.playwright/
+.cache/ms-playwright/
+
 # OS
 .DS_Store
