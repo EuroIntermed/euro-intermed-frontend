@@ -14,13 +14,24 @@ export const DASHBOARD_URL =
  * own /dashboard/widget route is auth-gated, so the default points at a
  * marketing site that ships the buyer embed — override to any page hosting the
  * widget.
+ *
+ * The widget is currently LIVE on the STAGING sites (staging.*), and will be
+ * enabled on the production domains below soon. Until then, run this suite
+ * against staging with the E2E_SITE_*_URL overrides documented in e2e/README.md
+ * (e.g. E2E_SITE_ANGROSIST_URL=https://staging.angrosist.ro). The widget loads
+ * from the dashboard host (staging: staging-dash.euro-intermed.com/widget.js).
  */
 export const WIDGET_URL =
   process.env.E2E_WIDGET_URL ||
   process.env.E2E_SITE_ANGROSIST_URL ||
-  'https://angrosist.ro'
+  'https://staging.angrosist.ro'
 
-/** The three marketing sites that should embed the widget. */
+/**
+ * The three marketing sites that should embed the widget. Defaults are the
+ * canonical PRODUCTION domains (angrosist.ro, euro-intermed.com,
+ * palletclearance.com); point them at the staging.* hosts via env to test where
+ * the widget is live today.
+ */
 export const SITES: { name: string; url: string }[] = [
   {
     name: 'angrosist',
@@ -28,11 +39,11 @@ export const SITES: { name: string; url: string }[] = [
   },
   {
     name: 'euro-intermed',
-    url: process.env.E2E_SITE_EUROINTERMED_URL || 'https://euro-intermed.ro',
+    url: process.env.E2E_SITE_EUROINTERMED_URL || 'https://euro-intermed.com',
   },
   {
     name: 'pallet-clearance',
-    url: process.env.E2E_SITE_PALLET_URL || 'https://pallet-clearance.eu',
+    url: process.env.E2E_SITE_PALLET_URL || 'https://palletclearance.com',
   },
 ]
 
