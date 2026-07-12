@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useChat, type ChatImage } from '@/hooks/useChat'
+import { useChat, type ChatImage, type ChatDocument } from '@/hooks/useChat'
 import { getPrivacyUrl, type ChatIntent, type ChatVertical } from '@/lib/api'
 import { detectLang, makeT, type Lang } from '@/lib/i18n'
 import { renderMessage, type MarkdownStyles } from '@/lib/chat/markdown'
@@ -30,6 +30,12 @@ interface Props {
 
 const CONV_KEY = 'angrosist_widget_conv_id'
 
+/**
+ * BUYER (Angrosist) product-list document types (contract A1.2(e)). Mirrors the
+ * backend allow-list; the file input `accept` uses the same string.
+ */
+const DOC_ACCEPT = '.xlsx,.xls,.csv,.doc,.docx,.pdf'
+
 let pickCounter = 0
 function nextPickId(): string {
   pickCounter += 1
@@ -40,6 +46,11 @@ interface StagedImage {
   id: string
   file: File
   previewUrl: string
+}
+
+interface StagedDoc {
+  id: string
+  file: File
 }
 
 /** Keyframes the widget needs, injected once (no global stylesheet in the bundle). */
@@ -163,6 +174,66 @@ function ImageGroup({ images, theme }: { images: ChatImage[]; theme: WidgetTheme
   )
 }
 
+/**
+ * BUYER product-list bubble: a stacked list of attached document chips (filename
+ * + per-file upload status), the document analog of {@link ImageGroup}.
+ */
+function DocumentGroup({
+  documents,
+  theme,
+}: {
+  documents: ChatDocument[]
+  theme: WidgetTheme
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', maxWidth: '78%' }}>
+      {documents.map((d) => (
+        <div
+          key={d.id}
+          title={d.name}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 10px',
+            borderRadius: '14px 14px 4px 14px',
+            background: theme.userBubbleBg,
+            color: theme.userText,
+            fontSize: '13px',
+            maxWidth: '260px',
+          }}
+        >
+          <span aria-hidden style={{ fontSize: '16px', flexShrink: 0 }}>
+            📄
+          </span>
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {d.name}
+          </span>
+          <span
+            aria-hidden
+            style={{
+              flexShrink: 0,
+              fontSize: '12px',
+              opacity: d.status === 'error' ? 1 : 0.85,
+              color: d.status === 'error' ? '#fecaca' : 'inherit',
+            }}
+          >
+            {d.status === 'uploading' ? '…' : d.status === 'done' ? '✓' : '!'}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // `widget-entry.tsx` already stashes `config.apiUrl` on
 // `window.__ANGROSIST_API_URL__` at module init (before this component renders),
 // so getApiBase() resolves correctly on the first send. The effect below keeps
@@ -178,7 +249,9 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     extracted: _extracted,
     send,
     sendImages,
+    sendDocuments,
     canAttach,
+    vertical: resolvedVertical,
     intent: resolvedIntent,
     restoredEnded,
     startNew,
@@ -193,11 +266,13 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     timeoutMessage: t('chat.streamTimeout'),
     resetMessage: t('chat.sessionReset'),
     photosUploadedMessage: t('chat.photosUploaded'),
+    productListUploadedMessage: t('chat.productListUploaded'),
     vertical,
     intent,
   })
   const [input, setInput] = useState('')
   const [staged, setStaged] = useState<StagedImage[]>([])
+  const [stagedDocs, setStagedDocs] = useState<StagedDoc[]>([])
   // Whether the user has answered the "continue vs start new" prompt for the
   // currently-stored finished conversation. Local + default false, so the card
   // shows once per open session; a NEW finished conversation flips `restoredEnded`
@@ -205,6 +280,7 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
   const [resumeChosen, setResumeChosen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const docRef = useRef<HTMLInputElement>(null)
   const stagedRef = useRef<StagedImage[]>(staged)
   useEffect(() => {
     stagedRef.current = staged
@@ -212,6 +288,12 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
 
   // The seller (PalletClearance) flow accepts photos; the buyer flow does not.
   const allowPhotos = resolvedIntent === 'sell'
+  // The BUYER (Angrosist) flow accepts a product-list document (Excel/Word/CSV/
+  // PDF, contract A1.2(e)); the seller flow does not. Gated to the concrete
+  // angrosist/buy flow so the router (euro-intermed/triage) hides it until the
+  // agent re-routes the conversation into the buyer flow.
+  const allowProductList =
+    resolvedVertical === 'angrosist' && resolvedIntent === 'buy'
 
   // Keep the global override in sync with the prop (side effect, out of render).
   useEffect(() => {
@@ -227,7 +309,7 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
       50,
     )
     return () => clearTimeout(id)
-  }, [messages, typing, staged])
+  }, [messages, typing, staged, stagedDocs])
 
   // Revoke any still-staged preview URLs on unmount.
   useEffect(() => {
@@ -256,14 +338,31 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     })
   }
 
+  function pickDocs(files: FileList | null) {
+    if (!files) return
+    // Backend is the real gate on type/size; staging accepts what the OS picker
+    // returned (the input `accept` already narrows it).
+    const next = Array.from(files).map((file) => ({
+      id: nextPickId(),
+      file,
+    }))
+    if (next.length) setStagedDocs((prev) => [...prev, ...next])
+  }
+
+  function removeStagedDoc(id: string) {
+    setStagedDocs((prev) => prev.filter((d) => d.id !== id))
+  }
+
   function handleSend() {
     const text = input.trim()
     const hasImages = staged.length > 0
-    if (!text && !hasImages) return
+    const hasDocs = stagedDocs.length > 0
+    if (!text && !hasImages && !hasDocs) return
     // Exactly one agent turn per action: if we dispatch the text turn, the
-    // photos upload WITHOUT firing their own turn (the text turn + the backend's
-    // injected photo count cover the reply). If there's no text turn, the photos
-    // fire the turn themselves so a photos-only send never goes silent.
+    // photos/documents upload WITHOUT firing their own turn (the text turn + the
+    // backend's injected attachment count cover the reply). If there's no text
+    // turn, the attachments fire the turn themselves so an attachment-only send
+    // never goes silent — photos take precedence, else documents.
     const textSent = text !== '' && !typing
     if (textSent) {
       send(text)
@@ -274,9 +373,18 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
       staged.forEach((s) => URL.revokeObjectURL(s.previewUrl))
       setStaged([])
     }
+    if (hasDocs) {
+      sendDocuments(stagedDocs.map((d) => d.file), {
+        fireTurn: !textSent && !hasImages,
+      })
+      setStagedDocs([])
+    }
   }
 
-  const canSend = (input.trim() !== '' && !typing) || staged.length > 0
+  const canSend =
+    (input.trim() !== '' && !typing) ||
+    staged.length > 0 ||
+    stagedDocs.length > 0
 
   // Show the "continue vs start new" card only when a FINISHED conversation is
   // stored and the user hasn't answered yet this open session.
@@ -454,6 +562,7 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
         {messages.map((m) => {
           const isUser = m.role === 'user'
           const hasImages = !!m.images?.length
+          const hasDocs = !!m.documents?.length
           return (
             <div
               key={m.id}
@@ -484,6 +593,9 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
                 </div>
               )}
               {hasImages && <ImageGroup images={m.images!} theme={theme} />}
+              {hasDocs && (
+                <DocumentGroup documents={m.documents!} theme={theme} />
+              )}
             </div>
           )
         })}
@@ -565,6 +677,73 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
           </div>
         )}
 
+        {/* Staged product-list document tray (buyer flow, before send) */}
+        {stagedDocs.length > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              gap: '6px',
+              flexWrap: 'wrap',
+              padding: '10px 12px 0',
+            }}
+          >
+            {stagedDocs.map((d) => (
+              <div
+                key={d.id}
+                title={d.file.name}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  maxWidth: '190px',
+                  padding: '6px 8px',
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.border}`,
+                  background: theme.tileBg,
+                  fontSize: '12px',
+                }}
+              >
+                <span aria-hidden style={{ flexShrink: 0 }}>
+                  📄
+                </span>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: theme.text,
+                  }}
+                >
+                  {d.file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeStagedDoc(d.id)}
+                  aria-label={t('chat.removeProductList')}
+                  title={t('chat.removeProductList')}
+                  style={{
+                    flexShrink: 0,
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    border: 'none',
+                    background: 'rgba(0,0,0,0.55)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    lineHeight: '14px',
+                    padding: 0,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={{ padding: '10px 12px', display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
           {allowPhotos && (
             <>
@@ -600,6 +779,43 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
                 }}
               >
                 📷
+              </button>
+            </>
+          )}
+          {allowProductList && (
+            <>
+              <input
+                ref={docRef}
+                type="file"
+                accept={DOC_ACCEPT}
+                multiple
+                aria-label={t('chat.addProductList')}
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  pickDocs(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => docRef.current?.click()}
+                disabled={!canAttach}
+                aria-label={t('chat.addProductList')}
+                title={canAttach ? t('chat.addProductList') : t('chat.productListHint')}
+                style={{
+                  flexShrink: 0,
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
+                  border: `1px solid ${theme.inputBorder}`,
+                  background: theme.inputBg,
+                  color: theme.text,
+                  cursor: canAttach ? 'pointer' : 'not-allowed',
+                  opacity: canAttach ? 1 : 0.45,
+                  fontSize: '17px',
+                }}
+              >
+                📎
               </button>
             </>
           )}

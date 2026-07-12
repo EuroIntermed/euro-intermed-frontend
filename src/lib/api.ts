@@ -215,6 +215,65 @@ export async function uploadConversationPhoto(
   return (await res.json()) as ConversationPhoto
 }
 
+/** Result of a successful buyer product-list document upload (mirrors the backend envelope). */
+export interface ConversationDocument {
+  id: string
+  key: string
+  url: string
+}
+
+/**
+ * Uploads one BUYER product-list document (Excel/Word/CSV/PDF) to an
+ * Angrosist/buy conversation via the PUBLIC multipart endpoint
+ * (`POST /api/conversations/{id}/documents`) — the sibling of
+ * {@link uploadConversationPhoto} for the buyer qualification flow (contract
+ * A1.2(e)). Carries the per-conversation ownership token (no staff auth header)
+ * via the `X-Conversation-Token` header plus a `token` form field fallback, and
+ * surfaces backend `{error:{code,message}}` messages — incl. 403 (missing/invalid
+ * token), 409 `DOCUMENT_LIMIT_REACHED` (per-conversation cap of 5) and 413
+ * (oversize) — as a thrown {@link ApiError} so the UI can show the exact reason.
+ */
+export async function uploadConversationDocument(
+  conversationId: string,
+  file: File,
+  token?: string | null,
+): Promise<ConversationDocument> {
+  const form = new FormData()
+  form.append('file', file)
+  // Prove conversation ownership (header preferred; form field as a belt-and-
+  // braces fallback). Without it the backend 403s.
+  if (token) form.append('token', token)
+
+  const headers: Record<string, string> = {}
+  if (token) headers['X-Conversation-Token'] = token
+
+  const res = await fetch(
+    `${getApiBase()}/api/conversations/${encodeURIComponent(
+      conversationId,
+    )}/documents`,
+    { method: 'POST', headers, body: form },
+  )
+
+  if (!res.ok) {
+    let code = 'INTERNAL'
+    let message = `Eroare ${res.status}`
+    let details: { field: string; issue: string }[] | undefined
+    try {
+      const body = (await res.json()) as ErrorEnvelope
+      if (body.error) {
+        code = body.error.code ?? code
+        message = body.error.message ?? message
+        details = body.error.details
+      }
+    } catch {
+      /* non-JSON error body — keep defaults */
+    }
+    throw new ApiError(res.status, code, message, details)
+  }
+
+  return (await res.json()) as ConversationDocument
+}
+
 // ===========================================================================
 // Authenticated dashboard API (M3 Epic 3.3)
 //

@@ -836,6 +836,20 @@ export const ro = {
     // uploading, so the agent acknowledges them ("got them, next step"). The
     // image bubble is the real message; this is only the turn's text payload.
     photosUploaded: 'Am încărcat fotografiile.',
+    // BUYER (Angrosist) product-list upload — Excel/Word/CSV/PDF attached during
+    // qualification (contract A1.2(e)). Mirrors the seller-photo strings.
+    addProductList: 'Adaugă lista de produse',
+    removeProductList: 'Elimină fișierul',
+    productListHint:
+      'Trimiteți un mesaj pentru a începe, apoi adăugați lista de produse.',
+    productListInvalidType: 'Formate acceptate: Excel, Word, CSV sau PDF.',
+    productListCountOne: '1 fișier încărcat',
+    productListCountOther: '{n} fișiere încărcate',
+    productListCap: 'Ați atins limita de {n} fișiere.',
+    // Synthetic user message dispatched as ONE agent turn after the product-list
+    // documents finish uploading, so the agent acknowledges them. The document
+    // bubble is the real message; this is only the turn's text payload.
+    productListUploaded: 'Am încărcat lista de produse.',
     // Embeddable widget surface (the widget has no LanguageProvider; it picks a
     // language from its config). Kept here so RO/EN stay in one place.
     widgetTitle: 'Euro Intermed',
@@ -1686,6 +1700,16 @@ export const en: Dict = {
     photoCountOther: '{n} photos uploaded',
     photoHint: 'Send a message to start, then add photos.',
     photosUploaded: "I've uploaded the photos.",
+    // BUYER (Angrosist) product-list upload — Excel/Word/CSV/PDF attached during
+    // qualification (contract A1.2(e)). Mirrors the seller-photo strings.
+    addProductList: 'Attach product list',
+    removeProductList: 'Remove file',
+    productListHint: 'Send a message to start, then attach your product list.',
+    productListInvalidType: 'Accepted formats: Excel, Word, CSV or PDF.',
+    productListCountOne: '1 file uploaded',
+    productListCountOther: '{n} files uploaded',
+    productListCap: 'You have reached the limit of {n} files.',
+    productListUploaded: "I've uploaded my product list.",
     widgetTitle: 'Euro Intermed',
     widgetLauncher: 'Chat with Euro Intermed',
     widgetClose: 'Close chat',

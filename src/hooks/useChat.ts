@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   sendMessage,
   subscribeToConversation,
+  uploadConversationDocument,
   uploadConversationPhoto,
   type ChatIntent,
   type ChatVertical,
@@ -19,6 +20,16 @@ export interface ChatImage {
   status: ChatImageStatus
 }
 
+/** Per-document upload state inside an outgoing product-list message. */
+export type ChatDocumentStatus = 'uploading' | 'done' | 'error'
+
+export interface ChatDocument {
+  id: string
+  /** Original file name shown on the document chip. */
+  name: string
+  status: ChatDocumentStatus
+}
+
 export interface ChatMessage {
   /** Stable id for keying + targeted updates (e.g. per-image upload status). */
   id: string
@@ -26,6 +37,11 @@ export interface ChatMessage {
   content: string
   /** Present on user image messages — a group of attached photos. */
   images?: ChatImage[]
+  /**
+   * Present on user product-list messages — a group of attached documents
+   * (Excel/Word/CSV/PDF) uploaded in the BUYER/Angrosist qualification flow.
+   */
+  documents?: ChatDocument[]
 }
 
 let idCounter = 0
@@ -58,6 +74,12 @@ interface UseChatOptions {
    * message; this is just the turn's text payload). Defaults to the RO string.
    */
   photosUploadedMessage?: string
+  /**
+   * Localized text used as the user's message when a batch of BUYER product-list
+   * documents finishes uploading (Angrosist flow), so the agent gets a turn to
+   * react. Analogous to {@link photosUploadedMessage}. Defaults to the RO string.
+   */
+  productListUploadedMessage?: string
   /** Flow vertical — sent on the first message only. Defaults to angrosist. */
   vertical?: ChatVertical
   /** Flow intent — sent on the first message only. Defaults to buy. */
@@ -82,6 +104,16 @@ interface UseChatResult {
    * the invariant of exactly one agent turn per action.
    */
   sendImages: (files: File[], opts?: { fireTurn?: boolean }) => void
+  /**
+   * Attach a group of BUYER product-list documents (Excel/Word/CSV/PDF) as a
+   * single user message and upload each to the conversation's document endpoint.
+   * The sibling of {@link sendImages} for the Angrosist buyer flow: no-op until a
+   * conversation exists, and once the uploads settle it fires ONE agent turn (no
+   * extra text bubble — the document bubble is the user's message) with the
+   * `productListUploadedMessage`. Pass `{ fireTurn: false }` when the caller is
+   * already dispatching a turn for the same action, to keep exactly one turn.
+   */
+  sendDocuments: (files: File[], opts?: { fireTurn?: boolean }) => void
   /** True once a conversation id exists, so photos can be uploaded/attached. */
   canAttach: boolean
   /** The active conversation id once the first message has been sent (else null). */
@@ -147,6 +179,7 @@ export function useChat({
   timeoutMessage,
   resetMessage,
   photosUploadedMessage = 'Am încărcat fotografiile.',
+  productListUploadedMessage = 'Am încărcat lista de produse.',
   vertical = 'angrosist',
   intent = 'buy',
 }: UseChatOptions): UseChatResult {
@@ -530,6 +563,82 @@ export function useChat({
     [setImageStatus, dispatchTurn, photosUploadedMessage],
   )
 
+  // Flip a single document's upload status inside its message.
+  const setDocStatus = useCallback(
+    (messageId: string, docId: string, status: ChatDocumentStatus) => {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId && m.documents
+            ? {
+                ...m,
+                documents: m.documents.map((d) =>
+                  d.id === docId ? { ...d, status } : d,
+                ),
+              }
+            : m,
+        ),
+      )
+    },
+    [],
+  )
+
+  // Attach picked product-list documents as ONE grouped user bubble, upload each
+  // to the conversation's document endpoint, then fire a SINGLE agent turn so the
+  // agent reacts to the list. The sibling of {@link sendImages} for the BUYER/
+  // Angrosist flow: the document bubble IS the user's message, so once the
+  // uploads settle we dispatch a turn with `addBubble: false` (no visible text
+  // bubble for the synthetic `productListUploadedMessage`). Documents carry no
+  // object URLs, so there is nothing to revoke.
+  //
+  // Pass `{ fireTurn: false }` when the caller already dispatched a turn for the
+  // same user action (text + docs together). If every upload fails, no turn fires.
+  const sendDocuments = useCallback(
+    (files: File[], opts?: { fireTurn?: boolean }) => {
+      const convId = convIdRef.current
+      if (!convId) return
+      const pairs = files.map((file) => ({
+        file,
+        doc: {
+          id: nextId('doc'),
+          name: file.name,
+          status: 'uploading' as ChatDocumentStatus,
+        },
+      }))
+      if (pairs.length === 0) return
+
+      const messageId = nextId('u')
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: messageId,
+          role: 'user',
+          content: '',
+          documents: pairs.map((p) => p.doc),
+        },
+      ])
+
+      void (async () => {
+        const results = await Promise.all(
+          pairs.map(async ({ file, doc }) => {
+            try {
+              await uploadConversationDocument(convId, file, tokenRef.current)
+              setDocStatus(messageId, doc.id, 'done')
+              return true
+            } catch {
+              setDocStatus(messageId, doc.id, 'error')
+              return false
+            }
+          }),
+        )
+        const anySucceeded = results.some(Boolean)
+        if ((opts?.fireTurn ?? true) && anySucceeded) {
+          dispatchTurn(productListUploadedMessage, { addBubble: false })
+        }
+      })()
+    },
+    [setDocStatus, dispatchTurn, productListUploadedMessage],
+  )
+
   // Close the EventSource, clear timers, and revoke image preview URLs on unmount.
   useEffect(() => {
     return () => {
@@ -548,6 +657,7 @@ export function useChat({
     extracted,
     send,
     sendImages,
+    sendDocuments,
     canAttach: conversationId !== null,
     conversationId,
     conversationToken,
