@@ -3,6 +3,7 @@ import { useChat, type ChatImage, type ChatDocument } from '@/hooks/useChat'
 import { getPrivacyUrl, type ChatIntent, type ChatVertical } from '@/lib/api'
 import { detectLang, makeT, type Lang } from '@/lib/i18n'
 import { renderMessage, type MarkdownStyles } from '@/lib/chat/markdown'
+import { subscribeSeed, type WidgetSeed } from './openBridge'
 import { useIsMobile, useWidgetTheme, type ThemePref, type WidgetTheme } from './theme'
 
 // Inline list styles so markdown bullets stay tight inside the message bubble
@@ -285,6 +286,24 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
   useEffect(() => {
     stagedRef.current = staged
   }, [staged])
+
+  // Bridge for the public `AngrosistChat.open({ message, autosend })` method:
+  // the vanilla entry pushes a composer seed here. The handler is kept in a ref
+  // (updated in an effect, never during render) so we can subscribe exactly once
+  // while the ref always sees the latest `send`/`setInput`; on each seed we
+  // either prefill the composer (default) or autosend the message as a turn.
+  const seedHandlerRef = useRef<(seed: WidgetSeed) => void>(() => {})
+  useEffect(() => {
+    seedHandlerRef.current = (seed) => {
+      if (!seed.message) return
+      if (seed.autosend) {
+        send(seed.message)
+      } else {
+        setInput(seed.message)
+      }
+    }
+  }, [send])
+  useEffect(() => subscribeSeed((seed) => seedHandlerRef.current(seed)), [])
 
   // The seller (PalletClearance) flow accepts photos; the buyer flow does not.
   const allowPhotos = resolvedIntent === 'sell'

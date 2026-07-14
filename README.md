@@ -2,6 +2,52 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Embeddable chat widget — public API
+
+The embeddable widget (`widget/`, built via `npm run build:widget` → `dist-widget/widget.js`)
+exposes a small global, `window.AngrosistChat`, with two methods:
+
+### `AngrosistChat.init(config)`
+
+Mounts the widget once (floating launcher + panel, or into `config.containerId`).
+Idempotent — safe to call repeatedly; only the first call mounts. Config:
+`{ apiUrl?, containerId?, vertical?, intent?, lang?, theme?, privacyUrl? }`.
+`vertical`/`intent` default to `angrosist`/`buy`. See `src/components/dashboard/EmbedCode.tsx`
+for the copy-paste embed snippets.
+
+### `AngrosistChat.open(opts)`
+
+Opens the widget panel programmatically and, optionally, seeds the composer — built
+for the Angrosist products catalog "Comandă" button.
+
+```js
+// Feature-detect, then open the widget prefilled with a product message.
+if (window.AngrosistChat?.open) {
+  window.AngrosistChat.open({
+    message: 'Vreau ofertă pentru: Zahăr tos 50kg (10 paleți)',
+    vertical: 'angrosist', // optional — defaults to the init config (angrosist)
+    intent: 'buy',         // optional — defaults to the init config (buy)
+    autosend: false,       // default: prefill only, so the user can review/edit
+  })
+}
+```
+
+`opts = { message?: string, vertical?: string, intent?: string, autosend?: boolean }`.
+
+- Mounts the widget first if `init()` was never called (reusing init's mount path);
+  otherwise it reuses the existing instance and its config.
+- **Opens** the panel.
+- **Seeds** the composer with `message` so the user can review/edit before sending
+  (the DEFAULT). With `autosend: true`, `message` is sent immediately as the first
+  user turn instead.
+- Applies `vertical`/`intent` as the conversation context when provided (honoring
+  explicit values; a plain `open({ message })` keeps the host's init config).
+- Safe to call repeatedly and before/after `init()`.
+
+The vanilla entry (`widget/widget-entry.tsx`) bridges to the React composer via a tiny
+subscribe/emit module (`widget/openBridge.ts`) — the entry pushes a seed, the mounted
+`WidgetApp` drains it — so the plain-JS entry never touches React state directly.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
