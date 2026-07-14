@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useChat, type ChatImage, type ChatDocument } from '@/hooks/useChat'
 import { getPrivacyUrl, type ChatIntent, type ChatVertical } from '@/lib/api'
 import { detectLang, makeT, type Lang } from '@/lib/i18n'
@@ -26,10 +26,18 @@ interface Props {
   lang?: Lang
   /** Accepted for API compatibility but ignored — the widget is light-only. */
   theme?: ThemePref
+  /** Optional per-embed accent hex (host brand); overrides the default emerald. */
+  accent?: string
+  /** Foreground on accent surfaces (defaults to white). */
+  accentText?: string
   onClose: () => void
 }
 
 const CONV_KEY = 'angrosist_widget_conv_id'
+
+/** Composer starting (single-line) height and the cap before it scrolls. */
+const COMPOSER_MIN_HEIGHT = 38
+const COMPOSER_MAX_HEIGHT = 120
 
 /**
  * BUYER (Angrosist) product-list document types (contract A1.2(e)). Mirrors the
@@ -239,9 +247,18 @@ function DocumentGroup({
 // `window.__ANGROSIST_API_URL__` at module init (before this component renders),
 // so getApiBase() resolves correctly on the first send. The effect below keeps
 // the global in sync if the prop changes.
-export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, onClose }: Props) {
+export function WidgetApp({
+  apiUrl,
+  vertical,
+  intent,
+  lang,
+  theme: themePref,
+  accent,
+  accentText,
+  onClose,
+}: Props) {
   const t = makeT(detectLang(lang))
-  const theme = useWidgetTheme(themePref)
+  const theme = useWidgetTheme(themePref, { accent, accentText })
   const isMobile = useIsMobile()
   const privacyUrl = getPrivacyUrl()
   const {
@@ -280,6 +297,7 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
   // back on but we re-show only if the user hasn't chosen this session.
   const [resumeChosen, setResumeChosen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const docRef = useRef<HTMLInputElement>(null)
   const stagedRef = useRef<StagedImage[]>(staged)
@@ -329,6 +347,16 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
     )
     return () => clearTimeout(id)
   }, [messages, typing, staged, stagedDocs])
+
+  // Auto-grow the composer textarea to fit its content (wraps + newlines) up to
+  // a max, then it scrolls. Keyed on `input` so it also resizes when the value is
+  // set programmatically (the openBridge prefill via setInput), not just on typing.
+  useLayoutEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`
+  }, [input])
 
   // Revoke any still-staged preview URLs on unmount.
   useEffect(() => {
@@ -838,10 +866,13 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
               </button>
             </>
           )}
-          <input
+          <textarea
+            ref={inputRef}
             value={input}
+            rows={1}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
+              // Enter sends; Shift+Enter inserts a newline (default textarea behavior).
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 handleSend()
@@ -851,7 +882,8 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
             style={{
               flex: 1,
               minWidth: 0,
-              height: '38px',
+              height: `${COMPOSER_MIN_HEIGHT}px`,
+              maxHeight: `${COMPOSER_MAX_HEIGHT}px`,
               padding: '8px 12px',
               borderRadius: '10px',
               border: `1px solid ${theme.inputBorder}`,
@@ -859,6 +891,11 @@ export function WidgetApp({ apiUrl, vertical, intent, lang, theme: themePref, on
               color: theme.inputText,
               outline: 'none',
               fontSize: '14px',
+              fontFamily: 'inherit',
+              lineHeight: 1.4,
+              resize: 'none',
+              overflowY: 'auto',
+              boxSizing: 'border-box',
             }}
           />
           <button

@@ -8,12 +8,18 @@ export function Launcher({
   onClick,
   label,
   themePref,
+  accent,
+  accentText,
 }: {
   onClick: () => void
   label: string
   themePref?: ThemePref
+  /** Optional per-embed accent hex (host brand); falls back to the default. */
+  accent?: string
+  /** Foreground on the accent (defaults to the theme's accentText). */
+  accentText?: string
 }) {
-  const theme = useWidgetTheme(themePref)
+  const theme = useWidgetTheme(themePref, { accent, accentText })
   return (
     <button
       onClick={onClick}

@@ -29,6 +29,14 @@ interface WidgetConfig {
    * it here per environment; no domain is hardcoded. Falls back to VITE_PRIVACY_URL.
    */
   privacyUrl?: string
+  /**
+   * Optional accent hex (host's vertical brand color). When set it overrides the
+   * default emerald on the header, send button, and user bubble; omit to keep the
+   * default so existing embeds are unaffected.
+   */
+  accent?: string
+  /** Foreground color used on accent surfaces (defaults to white). */
+  accentText?: string
 }
 
 /** Options for the public {@link open} method. */
@@ -102,6 +110,8 @@ function init(config: WidgetConfig = {}) {
           intent={currentConfig.intent}
           lang={lang}
           theme={currentConfig.theme}
+          accent={currentConfig.accent}
+          accentText={currentConfig.accentText}
           onClose={() => render(false)}
         />
       ) : (
@@ -109,6 +119,8 @@ function init(config: WidgetConfig = {}) {
           onClick={() => render(true)}
           label={t('chat.widgetLauncher')}
           themePref={currentConfig.theme}
+          accent={currentConfig.accent}
+          accentText={currentConfig.accentText}
         />
       ),
     )

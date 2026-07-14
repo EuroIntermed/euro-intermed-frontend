@@ -67,11 +67,41 @@ const LIGHT: WidgetTheme = {
 }
 
 /**
+ * Optional per-embed accent override. When `accent` is set (host site passes its
+ * vertical brand hex), it replaces the default emerald on the header, the send
+ * button, and the user bubble; `accentText` sets the foreground on those (white
+ * on all shipped verticals). Omitting both keeps the default palette so existing
+ * embeds are unaffected.
+ */
+export interface WidgetThemeOverrides {
+  accent?: string
+  accentText?: string
+}
+
+/**
  * The widget is light-only by design: it always renders the LIGHT palette
  * regardless of the host's `prefers-color-scheme` or any `theme` preference.
  * The `pref` argument is accepted for API compatibility but ignored.
+ *
+ * `overrides.accent` (with optional `overrides.accentText`) recolors the accent
+ * surfaces to the host's brand; when absent the sanctioned emerald default holds.
  */
-export function useWidgetTheme(_pref: ThemePref = 'auto'): WidgetTheme {
+export function useWidgetTheme(
+  _pref: ThemePref = 'auto',
+  overrides?: WidgetThemeOverrides,
+): WidgetTheme {
+  if (overrides?.accent) {
+    const accentText = overrides.accentText ?? LIGHT.accentText
+    return {
+      ...LIGHT,
+      headerBg: overrides.accent,
+      headerText: accentText,
+      userBubbleBg: overrides.accent,
+      userText: accentText,
+      accent: overrides.accent,
+      accentText,
+    }
+  }
   return LIGHT
 }
 
