@@ -20,6 +20,7 @@ import { KpiAiQuality } from '@/components/dashboard/KpiAiQuality'
 import { KpiFunnel } from '@/components/dashboard/KpiFunnel'
 import { KpiBreakdowns } from '@/components/dashboard/KpiBreakdowns'
 import { TriageSection } from '@/components/dashboard/TriageSection'
+import { GroupInviteSection } from '@/components/dashboard/GroupInviteSection'
 import { SupplyDemandSection } from '@/components/dashboard/SupplyDemandSection'
 import { OverviewLegend } from '@/components/dashboard/OverviewLegend'
 import { useT } from '@/lib/i18n'
@@ -100,6 +101,14 @@ export function OverviewPage() {
             desc={t('overview.triageDesc')}
           />
           <TriageSection />
+        </section>
+
+        <section className="flex flex-col gap-3">
+          <SectionHeader
+            title={t('overview.groupInviteTitle')}
+            desc={t('overview.groupInviteDesc')}
+          />
+          <GroupInviteSection />
         </section>
 
         <section className="flex flex-col gap-3">

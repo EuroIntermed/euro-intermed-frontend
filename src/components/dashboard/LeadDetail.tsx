@@ -510,6 +510,9 @@ export function LeadDetail({ lead, users }: Props) {
                 {t('detail.qualityScoreValue', { n: qualityScore })}
               </Badge>
             )}
+            {lead.wants_group_invite && (
+              <Badge variant="default">{t('detail.wantsGroup')}</Badge>
+            )}
           </>
         }
         meta={
@@ -674,6 +677,39 @@ export function LeadDetail({ lead, users }: Props) {
               )}
             </CardContent>
           </Card>
+          )}
+
+          {/* Offers-group opt-in: interests the buyer wants from the WhatsApp
+              offers group, shown so staff know what to send them. */}
+          {(lead.wants_group_invite || lead.group_interests?.length) && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                  {t('detail.wantsGroup')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {lead.group_interests?.length ? (
+                  <div>
+                    <dt className="mb-1.5 text-xs text-muted-foreground">
+                      {t('detail.groupInterests')}
+                    </dt>
+                    <div className="flex flex-wrap gap-1.5">
+                      {lead.group_interests.map((interest, i) => (
+                        <Badge key={`${interest}-${i}`} variant="outline">
+                          {sentenceCase(interest)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Field
+                    label={t('detail.groupInterests')}
+                    value={t('common.none')}
+                  />
+                )}
+              </CardContent>
+            </Card>
           )}
 
           {/* ACTIONS — the manager's interactive controls (offer / assignee /

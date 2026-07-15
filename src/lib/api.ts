@@ -707,6 +707,14 @@ export interface AuthedLeadDetail extends LeadSummary {
   buyer_profile?: BuyerProfileView | null
   company?: LeadCompanyView | null
   contact?: LeadContactView | null
+  /**
+   * Whether the buyer opted in (via the agent) to join the WhatsApp "offers"
+   * group. Detail-only projection; when true the header shows a "wants group"
+   * badge and {@link group_interests} lists what they're after.
+   */
+  wants_group_invite?: boolean
+  /** Free-text interests the buyer expressed for the offers group. */
+  group_interests?: string[]
 }
 
 export async function getLeadDetail(id: string): Promise<AuthedLeadDetail> {
@@ -1026,6 +1034,43 @@ export interface HandoffListPage {
 
 export async function listHandoffs(): Promise<HandoffListPage> {
   return authedFetch<HandoffListPage>('/handoffs')
+}
+
+// --- Group-invite worklist (WhatsApp "offers" group opt-ins) ---------------
+
+/**
+ * GroupInviteRequest mirrors the backend group-invite worklist row: a buyer who
+ * opted in (via the agent) to join the WhatsApp "offers" group and has NOT yet
+ * been added by staff. The list returns only PENDING requests, newest first;
+ * PATCHing `added` drops the contact off the list.
+ */
+export interface GroupInviteRequest {
+  contact_id: string
+  contact_name: string
+  company_name: string
+  phone?: string
+  vertical?: string
+  interests: string[]
+  note?: string
+  asked_at: string
+  lead_id?: string
+}
+
+/** Pending group-join requests (staff-auth), newest first. */
+export async function listGroupInviteRequests(): Promise<GroupInviteRequest[]> {
+  const res = await authedFetch<{ data: GroupInviteRequest[] }>('/group-invites')
+  return res.data ?? []
+}
+
+/**
+ * Mark a contact as manually added to the offers group. The row then drops off
+ * the pending worklist; the caller should invalidate ['group-invites'].
+ */
+export async function markGroupAdded(contactId: string): Promise<void> {
+  await authedFetch(`/group-invites/${encodeURIComponent(contactId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ added: true }),
+  })
 }
 
 // --- Inventory / listings (PalletClearance, cursor-paginated) -------------

@@ -1,6 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useAuth } from '@/auth/useAuth'
 import {
+  listGroupInviteRequests,
+  markGroupAdded,
   listLeads,
   getLeadDetail,
   getLeadActivity,
@@ -157,6 +163,39 @@ export function useHandoffs() {
   return useQuery({
     queryKey: ['handoffs'],
     queryFn: () => listHandoffs(),
+  })
+}
+
+/**
+ * Pending group-join requests (buyers who opted into the WhatsApp offers group,
+ * newest first). Staff-auth on the backend; a 403 resolves to an empty list so
+ * the overview worklist simply hides instead of erroring for a role that can't
+ * see it.
+ */
+export function useGroupInviteRequests() {
+  return useQuery({
+    queryKey: ['group-invites'],
+    queryFn: async () => {
+      try {
+        return await listGroupInviteRequests()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return []
+        throw err
+      }
+    },
+  })
+}
+
+/**
+ * Mark a contact as manually added to the offers group. On success it
+ * invalidates ['group-invites'] so the row drops off the pending worklist.
+ */
+export function useMarkGroupAdded() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: markGroupAdded,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['group-invites'] }),
   })
 }
 
