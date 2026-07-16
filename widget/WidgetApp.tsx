@@ -890,7 +890,9 @@ export function WidgetApp({
               background: theme.inputBg,
               color: theme.inputText,
               outline: 'none',
-              fontSize: '14px',
+              // >=16px on mobile so iOS Safari does NOT auto-zoom the page when the
+              // field is focused (that zoom is what made the layout jump/"zoom").
+              fontSize: isMobile ? '16px' : '14px',
               fontFamily: 'inherit',
               lineHeight: 1.4,
               resize: 'none',
