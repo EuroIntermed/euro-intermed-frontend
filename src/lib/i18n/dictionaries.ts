@@ -820,9 +820,9 @@ export const ro = {
     flowAngrosistBuy: 'Angrosist — Cumpăr (en-gros)',
     flowPalletSell: 'PalletClearance — Vând (loturi paleți)',
     greetingAngrosist:
-      'Bună ziua! Sunt asistentul Euro Intermed pentru achiziții en-gros. Cu ce vă pot ajuta astăzi?',
+      'Bună ziua! Sunt Radu, asistentul Euro Intermed pentru achiziții en-gros. Cu ce vă pot ajuta astăzi?',
     greetingPallet:
-      'Bună ziua! Sunt asistentul PalletClearance. Spuneți-mi ce lot doriți să vindeți și adăugați câteva fotografii.',
+      'Bună ziua! Sunt Radu, asistentul PalletClearance. Spuneți-mi ce lot doriți să vindeți și adăugați câteva fotografii.',
     flowSelector: 'Alege fluxul de chat',
     inputPlaceholder: 'Scrieți mesajul... (Enter pentru trimitere)',
     send: 'Trimite mesajul',
@@ -1696,9 +1696,9 @@ export const en: Dict = {
     flowAngrosistBuy: 'Angrosist — Buy (wholesale)',
     flowPalletSell: 'PalletClearance — Sell (pallet lots)',
     greetingAngrosist:
-      'Hello! I am the Euro Intermed assistant for wholesale purchasing. How can I help you today?',
+      "Hello! I'm Radu, the Euro Intermed assistant for wholesale purchasing. How can I help you today?",
     greetingPallet:
-      'Hello! I am the PalletClearance assistant. Tell me which lot you want to sell and add a few photos.',
+      "Hello! I'm Radu, the PalletClearance assistant. Tell me which lot you want to sell and add a few photos.",
     flowSelector: 'Choose the chat flow',
     inputPlaceholder: 'Type your message... (Enter to send)',
     send: 'Send message',
