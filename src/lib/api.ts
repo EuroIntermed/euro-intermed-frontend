@@ -104,6 +104,14 @@ export type ChatIntent = 'buy' | 'sell' | 'triage'
 export interface ChatFlow {
   vertical?: ChatVertical
   intent?: ChatIntent
+  /**
+   * Conversation language (`ro` | `en`) the backend should start the conversation
+   * in, so the agent's replies match the greeting/site language. Only meaningful
+   * on the FIRST message (the backend pins the language on creation); sending it
+   * on later turns is harmless. Unknown-field-safe if the backend hasn't shipped
+   * it yet.
+   */
+  language?: 'ro' | 'en'
 }
 
 export interface TranscriptMessage {
@@ -153,6 +161,10 @@ export async function sendMessage(
       message,
       ...(isFirst && flow?.vertical ? { vertical: flow.vertical } : {}),
       ...(isFirst && flow?.intent ? { intent: flow.intent } : {}),
+      // Conversation language — sent so the backend starts the agent in the
+      // widget/site language. Sent on every turn (harmless after creation);
+      // the field name MUST be exactly `language`.
+      ...(flow?.language ? { language: flow.language } : {}),
     }),
   })
   if (!res.ok) throw new Error(`chat error ${res.status}`)

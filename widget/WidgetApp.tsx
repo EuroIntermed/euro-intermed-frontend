@@ -30,6 +30,13 @@ interface Props {
   accent?: string
   /** Foreground on accent surfaces (defaults to white). */
   accentText?: string
+  /**
+   * True while the panel is MINIMIZED. The widget keeps WidgetApp mounted (so the
+   * transcript + SSE stream survive minimize) and merely hides it via CSS; this
+   * flag lets the panel restore composer focus when it becomes visible again.
+   */
+  hidden?: boolean
+  /** Minimize the panel (keeps the mounted instance + its state). */
   onClose: () => void
 }
 
@@ -255,9 +262,13 @@ export function WidgetApp({
   theme: themePref,
   accent,
   accentText,
+  hidden = false,
   onClose,
 }: Props) {
-  const t = makeT(detectLang(lang))
+  // Resolve the UI language ONCE: it drives both the localized copy (`t`) and the
+  // `language` we forward to the backend so the agent replies in the same tongue.
+  const uiLang = detectLang(lang)
+  const t = makeT(uiLang)
   const theme = useWidgetTheme(themePref, { accent, accentText })
   const isMobile = useIsMobile()
   const privacyUrl = getPrivacyUrl()
@@ -287,6 +298,7 @@ export function WidgetApp({
     productListUploadedMessage: t('chat.productListUploaded'),
     vertical,
     intent,
+    language: uiLang,
   })
   const [input, setInput] = useState('')
   const [staged, setStaged] = useState<StagedImage[]>([])
@@ -364,6 +376,14 @@ export function WidgetApp({
       stagedRef.current.forEach((s) => URL.revokeObjectURL(s.previewUrl))
     }
   }, [])
+
+  // Restore composer focus when the panel is revealed (un-minimized). The panel
+  // stays mounted while hidden, so this fires on each hidden→visible transition.
+  useEffect(() => {
+    if (hidden) return
+    const id = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(id)
+  }, [hidden])
 
   function pickFiles(files: FileList | null) {
     if (!files) return
@@ -448,6 +468,17 @@ export function WidgetApp({
     setResumeChosen(true)
   }
 
+  // Always-available "new chat" affordance (header button). Unlike the resume
+  // card — which only appears for a stored FINISHED conversation — this lets the
+  // user abandon ANY conversation (live or ended) and start fresh at any time.
+  // Dismiss the resume card too so it doesn't reappear over the fresh greeting.
+  function handleNewChat() {
+    startNew()
+    setResumeChosen(true)
+    // Return focus to the composer for the fresh conversation.
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
   const panelStyle: React.CSSProperties = isMobile
     ? {
         position: 'fixed',
@@ -517,10 +548,37 @@ export function WidgetApp({
             {typing ? '…' : 'online'}
           </span>
         </div>
+        {/* Always-available "start new conversation" control. */}
+        <button
+          type="button"
+          onClick={handleNewChat}
+          aria-label={t('chat.newChat')}
+          title={t('chat.newChat')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: 'rgba(255,255,255,0.18)',
+            border: 'none',
+            borderRadius: '999px',
+            color: theme.headerText,
+            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 600,
+            lineHeight: 1,
+            padding: '5px 9px',
+            flexShrink: 0,
+          }}
+        >
+          <span aria-hidden style={{ fontSize: '13px' }}>
+            ↻
+          </span>
+          {t('chat.newChat')}
+        </button>
         <button
           onClick={onClose}
-          aria-label={t('chat.widgetClose')}
-          title={t('chat.widgetClose')}
+          aria-label={t('chat.widgetMinimize')}
+          title={t('chat.widgetMinimize')}
           style={{
             background: 'none',
             border: 'none',
@@ -529,6 +587,7 @@ export function WidgetApp({
             fontSize: '22px',
             lineHeight: 1,
             padding: '2px 4px',
+            flexShrink: 0,
           }}
         >
           ×

@@ -864,6 +864,12 @@ export const ro = {
     widgetTitle: 'Euro Intermed',
     widgetLauncher: 'Chat cu Euro Intermed',
     widgetClose: 'Închide chat-ul',
+    // The header "×" now MINIMIZES the panel (state is kept), so its label is a
+    // minimize, not a close.
+    widgetMinimize: 'Minimizează chat-ul',
+    // Always-available header control to abandon the current conversation and
+    // start a fresh one (resets id/token/transcript and re-greets).
+    newChat: 'Conversație nouă',
     widgetInputPlaceholder: 'Mesaj...',
     networkError: 'Eroare de rețea. Încercați din nou.',
     // Shown when the agent reply (delivered over SSE) does not arrive in a
@@ -1731,6 +1737,12 @@ export const en: Dict = {
     widgetTitle: 'Euro Intermed',
     widgetLauncher: 'Chat with Euro Intermed',
     widgetClose: 'Close chat',
+    // The header "×" now MINIMIZES the panel (state is kept), so its label is a
+    // minimize, not a close.
+    widgetMinimize: 'Minimize chat',
+    // Always-available header control to abandon the current conversation and
+    // start a fresh one (resets id/token/transcript and re-greets).
+    newChat: 'New chat',
     widgetInputPlaceholder: 'Message...',
     networkError: 'Network error. Please try again.',
     // Shown when the agent reply (delivered over SSE) does not arrive in a

@@ -1,43 +1,8 @@
 import { createRoot } from 'react-dom/client'
-import { WidgetApp } from './WidgetApp'
-import { Launcher } from './Launcher'
-import { type ThemePref } from './theme'
+import { WidgetRoot, type WidgetConfig } from './WidgetRoot'
 import { pushSeed } from './openBridge'
 import type { ChatIntent, ChatVertical } from '@/lib/api'
-import { detectLang, makeT, type Lang } from '@/lib/i18n'
-
-interface WidgetConfig {
-  apiUrl?: string
-  containerId?: string
-  /** Flow vertical — defaults to 'angrosist' (existing embeds unaffected). */
-  vertical?: ChatVertical
-  /** Flow intent — defaults to 'buy'. Use 'sell' for the PalletClearance seller flow. */
-  intent?: ChatIntent
-  /**
-   * UI language for the widget ('ro' | 'en'). The widget has no LanguageProvider;
-   * this picks the dictionary. Defaults to RO, falling back to the browser
-   * preference when omitted.
-   */
-  lang?: Lang
-  /**
-   * Accepted for API compatibility but ignored — the widget is light-only and
-   * never follows the host's dark mode.
-   */
-  theme?: ThemePref
-  /**
-   * Public privacy-policy URL linked from the GDPR consent notice. Host sites set
-   * it here per environment; no domain is hardcoded. Falls back to VITE_PRIVACY_URL.
-   */
-  privacyUrl?: string
-  /**
-   * Optional accent hex (host's vertical brand color). When set it overrides the
-   * default emerald on the header, send button, and user bubble; omit to keep the
-   * default so existing embeds are unaffected.
-   */
-  accent?: string
-  /** Foreground color used on accent surfaces (defaults to white). */
-  accentText?: string
-}
+import { type Lang } from '@/lib/i18n'
 
 /** Options for the public {@link open} method. */
 interface OpenOptions {
@@ -51,6 +16,12 @@ interface OpenOptions {
   /** Conversation intent to route into (defaults to the host's init config). */
   intent?: ChatIntent
   /**
+   * Site/conversation language ('ro' | 'en'). A marketing-site redirect passes the
+   * page language here so the greeting renders — and the agent starts — in that
+   * language. Omit to keep the host's init config (or the auto-detected default).
+   */
+  lang?: Lang
+  /**
    * When true, send `message` as the first user turn immediately. When false /
    * omitted (the DEFAULT), the message is only prefilled so the user can review
    * and edit before sending.
@@ -60,10 +31,13 @@ interface OpenOptions {
 
 let mounted = false
 // Hoisted out of init() so open() can re-open the panel and mutate the live
-// conversation context (vertical/intent) after mount. `currentConfig` is the
-// single source the render closure reads its mutable fields from.
+// conversation context (vertical/intent/lang) after mount. `currentConfig` is the
+// single source WidgetRoot reads its mutable fields from (via `getConfig`).
 let currentConfig: WidgetConfig = {}
-let renderWidget: ((open: boolean) => void) | null = null
+// Imperative opener registered by the mounted WidgetRoot. Null until React has
+// run the registration effect; `pendingOpen` covers the open-before-mount race.
+let openWidget: (() => void) | null = null
+let pendingOpen = false
 
 function init(config: WidgetConfig = {}) {
   if (mounted) return
@@ -79,9 +53,6 @@ function init(config: WidgetConfig = {}) {
     ;(window as unknown as Record<string, unknown>).__ANGROSIST_PRIVACY_URL__ =
       config.privacyUrl
   }
-
-  const lang = detectLang(config.lang)
-  const t = makeT(lang)
 
   // Find or create container
   let container: HTMLElement | null = null
@@ -100,34 +71,19 @@ function init(config: WidgetConfig = {}) {
   }
 
   const root = createRoot(container)
-
-  function render(open: boolean) {
-    root.render(
-      open ? (
-        <WidgetApp
-          apiUrl={currentConfig.apiUrl}
-          vertical={currentConfig.vertical}
-          intent={currentConfig.intent}
-          lang={lang}
-          theme={currentConfig.theme}
-          accent={currentConfig.accent}
-          accentText={currentConfig.accentText}
-          onClose={() => render(false)}
-        />
-      ) : (
-        <Launcher
-          onClick={() => render(true)}
-          label={t('chat.widgetLauncher')}
-          themePref={currentConfig.theme}
-          accent={currentConfig.accent}
-          accentText={currentConfig.accentText}
-        />
-      ),
-    )
-  }
-
-  renderWidget = render
-  render(false)
+  root.render(
+    <WidgetRoot
+      register={(fn) => {
+        openWidget = fn
+        // Flush an open() that landed before the panel mounted.
+        if (pendingOpen) {
+          pendingOpen = false
+          fn()
+        }
+      }}
+      getConfig={() => currentConfig}
+    />,
+  )
 }
 
 /**
@@ -137,23 +93,26 @@ function init(config: WidgetConfig = {}) {
  *
  * Example (feature-detected):
  *   if (window.AngrosistChat?.open)
- *     window.AngrosistChat.open({ message: 'Vreau 10 paleți zahăr', vertical: 'angrosist', intent: 'buy' })
+ *     window.AngrosistChat.open({ message: 'Vreau 10 paleți zahăr', vertical: 'angrosist', intent: 'buy', lang: 'ro' })
  */
 function open(opts: OpenOptions = {}) {
   // Mount if needed, reusing init's path. When the host already called init(),
   // this no-ops and we keep their config (apiUrl / privacyUrl / lang / theme).
   if (!mounted) {
-    init({ vertical: opts.vertical, intent: opts.intent })
+    init({ vertical: opts.vertical, intent: opts.intent, lang: opts.lang })
   }
 
   // Apply the conversation context when explicitly provided, so a plain
-  // open({ message }) keeps the host's init vertical/intent (which itself
+  // open({ message }) keeps the host's init vertical/intent/lang (which itself
   // defaults to angrosist/buy in useChat when unset).
   if (opts.vertical) currentConfig.vertical = opts.vertical
   if (opts.intent) currentConfig.intent = opts.intent
+  if (opts.lang) currentConfig.lang = opts.lang
 
-  // Open the panel.
-  renderWidget?.(true)
+  // Reveal the panel. If the mount's registration effect hasn't run yet (first
+  // call raced the mount), defer via `pendingOpen`; the registrar flushes it.
+  if (openWidget) openWidget()
+  else pendingOpen = true
 
   // Seed the composer (default) or autosend the message. Handed to WidgetApp via
   // the openBridge so the vanilla entry never touches React state directly.

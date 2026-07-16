@@ -84,6 +84,12 @@ interface UseChatOptions {
   vertical?: ChatVertical
   /** Flow intent — sent on the first message only. Defaults to buy. */
   intent?: ChatIntent
+  /**
+   * Conversation language (`ro` | `en`) forwarded to `POST /api/chat` so the
+   * backend starts the agent in the same language as the greeting/site. Omitted →
+   * the field is not sent and the backend uses its own default.
+   */
+  language?: 'ro' | 'en'
 }
 
 interface UseChatResult {
@@ -182,10 +188,35 @@ export function useChat({
   productListUploadedMessage = 'Am încărcat lista de produse.',
   vertical = 'angrosist',
   intent = 'buy',
+  language,
 }: UseChatOptions): UseChatResult {
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    { id: nextId('a'), role: 'assistant', content: greeting },
-  ])
+  // Derived sessionStorage keys (declared before the message-state initializer so
+  // it can read them). All are scoped to the per-flow `convStorageKey`.
+  const tokenStorageKey = `${convStorageKey}_token`
+  const endedStorageKey = `${convStorageKey}_ended`
+  const msgsStorageKey = `${convStorageKey}_msgs`
+
+  // Restore the VISIBLE transcript across a full page reload: when a conversation
+  // id + token are stored (a resumable conversation), reload the saved messages so
+  // the user sees their history, not just a fresh greeting. Falls back to the
+  // single greeting bubble when nothing valid is stored.
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const hasConv =
+      sessionStorage.getItem(convStorageKey) != null &&
+      sessionStorage.getItem(tokenStorageKey) != null
+    if (hasConv) {
+      const raw = sessionStorage.getItem(msgsStorageKey)
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as ChatMessage[]
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        } catch {
+          /* corrupt/stale transcript — fall through to the greeting */
+        }
+      }
+    }
+    return [{ id: nextId('a'), role: 'assistant', content: greeting }]
+  })
   const [typing, setTyping] = useState(false)
   const [extracted, setExtracted] = useState<ExtractedFields>({})
   // Live flow, seeded from the embed config but UPDATED from each agent reply so
@@ -201,7 +232,6 @@ export function useChat({
   // The per-conversation ownership token, mirrored to state so the seller-photo
   // control can read it. Persisted alongside the id so a reload that resumes the
   // conversation can still authorize continuing turns / SSE before the next reply.
-  const tokenStorageKey = `${convStorageKey}_token`
   const [conversationToken, setConversationToken] = useState<string | null>(
     () => sessionStorage.getItem(tokenStorageKey),
   )
@@ -209,7 +239,6 @@ export function useChat({
   // bot muted). Set from an assistant message with `ended === true`, cleared when
   // a non-ended message arrives (the conversation is live again). On init we only
   // treat it as ended if there IS a stored conversation to resume.
-  const endedStorageKey = `${convStorageKey}_ended`
   const [restoredEnded, setRestoredEnded] = useState<boolean>(
     () =>
       sessionStorage.getItem(convStorageKey) != null &&
@@ -233,6 +262,26 @@ export function useChat({
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+
+  // Persist the VISIBLE transcript so a full page reload restores it (see the
+  // message-state initializer). Only once a conversation exists (before that the
+  // transcript is just the greeting, recreated on next mount). We store only real
+  // text-bearing user/assistant turns — never the transient typing indicator
+  // (that is separate state), and we drop image/document bubbles because their
+  // local object URLs / upload state can't survive a reload. Capped to the last
+  // 60 messages to bound sessionStorage.
+  useEffect(() => {
+    if (!conversationId) return
+    const persistable = messages
+      .filter((m) => m.content.trim() !== '')
+      .map((m) => ({ id: m.id, role: m.role, content: m.content }))
+      .slice(-60)
+    try {
+      sessionStorage.setItem(msgsStorageKey, JSON.stringify(persistable))
+    } catch {
+      /* storage full/disabled — non-fatal, we just lose reload persistence */
+    }
+  }, [messages, conversationId, msgsStorageKey])
 
   // Per-turn guard: incremented on each send, so the SSE `message` handler
   // renders at most one reply for the in-flight turn (a replayed buffer event
@@ -298,9 +347,10 @@ export function useChat({
     sessionStorage.removeItem(convStorageKey)
     sessionStorage.removeItem(tokenStorageKey)
     sessionStorage.removeItem(endedStorageKey)
+    sessionStorage.removeItem(msgsStorageKey)
     unsubscribeRef.current?.()
     unsubscribeRef.current = null
-  }, [convStorageKey, tokenStorageKey, endedStorageKey])
+  }, [convStorageKey, tokenStorageKey, endedStorageKey, msgsStorageKey])
 
   // Abandon the stored (finished) conversation and begin fresh: drop the id +
   // token + `_ended` flag from refs/state/storage, tear down any open stream,
@@ -428,7 +478,7 @@ export function useChat({
           const ack = await sendMessage(
             convIdRef.current,
             text,
-            { vertical, intent },
+            { vertical, intent, language },
             tokenRef.current,
           )
           convIdRef.current = ack.conversation_id
@@ -473,6 +523,7 @@ export function useChat({
       resetStaleConversation,
       vertical,
       intent,
+      language,
     ],
   )
 
