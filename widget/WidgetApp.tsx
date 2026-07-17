@@ -367,7 +367,11 @@ export function WidgetApp({
     const el = inputRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_HEIGHT)}px`
+    // Floor at COMPOSER_MIN_HEIGHT so an empty composer keeps a proper single-line
+    // height — and so measuring while the panel is hidden (scrollHeight === 0 when
+    // display:none after a minimize) can never collapse it to a thin line.
+    const next = Math.min(Math.max(el.scrollHeight, COMPOSER_MIN_HEIGHT), COMPOSER_MAX_HEIGHT)
+    el.style.height = `${next}px`
   }, [input])
 
   // Revoke any still-staged preview URLs on unmount.
@@ -942,6 +946,9 @@ export function WidgetApp({
               flex: 1,
               minWidth: 0,
               height: `${COMPOSER_MIN_HEIGHT}px`,
+              // CSS floor: the field can never render thinner than one line even if the
+              // auto-grow effect measures a hidden (0-height) textarea after a minimize.
+              minHeight: `${COMPOSER_MIN_HEIGHT}px`,
               maxHeight: `${COMPOSER_MAX_HEIGHT}px`,
               padding: '8px 12px',
               borderRadius: '10px',
