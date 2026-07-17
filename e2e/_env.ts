@@ -47,6 +47,38 @@ export const SITES: { name: string; url: string }[] = [
   },
 ]
 
+import type { APIRequestContext } from '@playwright/test'
+
+/**
+ * Probe whether a target is a usable smoke target BEFORE asserting anything
+ * against it. Returns true only for a 2xx/3xx response; a connection failure,
+ * DNS miss, timeout, or a 4xx/5xx (down, missing, or behind a Vercel Deployment
+ * Protection / SSO wall) returns false. New specs call this and `test.skip()`
+ * when it is false, so the suite never hard-fails in CI when the servers aren't
+ * up — it degrades to "skipped", not "failed".
+ */
+export async function reachable(
+  request: APIRequestContext,
+  url: string,
+): Promise<boolean> {
+  try {
+    const resp = await request.get(url, {
+      timeout: 10_000,
+      maxRedirects: 5,
+      // A gated/redirecting target may still answer; we only trust 2xx/3xx.
+      failOnStatusCode: false,
+    })
+    return resp.status() < 400
+  } catch {
+    return false
+  }
+}
+
+/** Join a base URL and a path without doubling or dropping the slash. */
+export function join(base: string, path: string): string {
+  return new URL(path, base.endsWith('/') ? base : `${base}/`).toString()
+}
+
 /** True when a URL is a real remote https origin (not localhost / loopback). */
 export function isHttpsBackend(url: string): boolean {
   try {

@@ -30,10 +30,11 @@ test.describe('widget', () => {
       { timeout: 20_000 },
     )
 
-    // The floating launcher is a button inside the widget wrapper. Fall back to
-    // any launcher-labelled control if the wrapper markup shifts.
+    // The floating launcher is a button inside the widget wrapper. The panel
+    // markup (incl. a hidden "new chat" button) can precede it in the DOM while
+    // the widget is closed, so target the first VISIBLE button — the launcher.
     const wrapper = page.locator(WIDGET_WRAPPER)
-    const launcher = wrapper.locator('button').first()
+    const launcher = wrapper.locator('button').filter({ visible: true }).first()
     await expect(launcher).toBeVisible({ timeout: 20_000 })
 
     await launcher.click()

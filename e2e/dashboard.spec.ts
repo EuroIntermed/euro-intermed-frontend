@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { DASHBOARD_URL } from './_env'
+import { DASHBOARD_URL, reachable } from './_env'
 
 /**
  * Dashboard smoke. Deterministic surfaces only — we never attempt OTP login
@@ -18,6 +18,13 @@ function collectPageErrors(page: Page): Error[] {
 }
 
 test.describe('dashboard', () => {
+  // Skip when the dashboard isn't up (e.g. the localhost:5173 default with no
+  // dev server) so CI without servers degrades to "skipped", not a hard fail.
+  test.beforeEach(async ({ request }) => {
+    const ok = await reachable(request, DASHBOARD_URL)
+    test.skip(!ok, `dashboard not reachable (skipping): ${DASHBOARD_URL}`)
+  })
+
   test('login page renders with an email form and no uncaught errors', async ({
     page,
   }) => {

@@ -61,6 +61,18 @@ spec defaults to a public marketing site that embeds the buyer flow — point
   global), the widget bundle points at an **https** backend and never
   `localhost`, and `robots.txt` + a privacy link resolve. This is the concrete
   check for the "widget shows on the marketing sites" gap.
+- **`marketing.spec.ts`** — per site, the roadmap happy paths: the RO landing
+  loads at the root with hero text, the EN landing loads under `/en` (locale
+  stamped on `<html data-locale>`), at least one legal page
+  (`/confidentialitate` → `/gdpr` → `/cookies`) resolves, and the header
+  language switch links to and resolves the EN page. **Each site is probed
+  first** and `test.skip`-ped if it isn't a usable 2xx/3xx origin.
+- **`widget-greeting.spec.ts`** — opening the launcher shows the **"Bogdan"**
+  greeting bubble (client-seeded, no backend), the composer is uncollapsed (has
+  a min height), and it accepts typed text (value round-trips). Skips when the
+  widget host isn't reachable.
 
 Specs assert **structure, not copy**, so ordinary content changes don't break
-them. The suite lives under `e2e/` and is excluded from the app `tsc`/vite build.
+them. The `marketing`/`widget-greeting` specs `test.skip` (via `reachable()` in
+`_env.ts`) when a target is down, DNS-less, or auth-walled — so the suite
+degrades to *skipped*, never a hard CI failure, when no servers are up. The suite lives under `e2e/` and is excluded from the app `tsc`/vite build.
