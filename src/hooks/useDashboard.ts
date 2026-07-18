@@ -12,6 +12,8 @@ import {
   listLeads,
   getLeadDetail,
   getLeadActivity,
+  getConversationMessages,
+  sendHumanMessage,
   listUsers,
   listCompanies,
   getCompany,
@@ -50,6 +52,46 @@ export function useLeadDetail(id: string) {
     queryKey: ['lead', id],
     queryFn: () => getLeadDetail(id),
     enabled: !!id,
+  })
+}
+
+/**
+ * LIVE transcript for the human-takeover panel. Polls every 4s while the panel
+ * is mounted so the staff member sees new CUSTOMER messages arrive; the poll
+ * stops as soon as the panel unmounts. `enabled` is gated on a truthy
+ * conversation id AND the caller's `opts.enabled` (default true) so we never
+ * fire against an empty id or poll from a hidden panel.
+ */
+export function useConversationMessages(
+  conversationId: string,
+  opts?: { enabled?: boolean },
+) {
+  return useQuery({
+    queryKey: ['conversation-messages', conversationId],
+    queryFn: () => getConversationMessages(conversationId),
+    enabled: !!conversationId && (opts?.enabled ?? true),
+    refetchInterval: 4000,
+  })
+}
+
+/**
+ * Send a HUMAN reply on a takeover conversation. On success it invalidates the
+ * live transcript (so the new `human` bubble shows), the lead detail
+ * (`['lead', leadId]` — the first send mutes the bot / sets needs_human) and the
+ * handoff queue, mirroring the other lead mutations. Toast/error surfacing lives
+ * in the calling component (matching ResumeBotButton / OfferCard).
+ */
+export function useSendHumanMessage(conversationId: string, leadId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (text: string) => sendHumanMessage(conversationId, text),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['conversation-messages', conversationId],
+      })
+      queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+      queryClient.invalidateQueries({ queryKey: ['handoffs'] })
+    },
   })
 }
 

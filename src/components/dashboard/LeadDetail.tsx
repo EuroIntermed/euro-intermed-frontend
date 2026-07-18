@@ -38,11 +38,11 @@ import { DetailHeader } from '@/components/dashboard/DetailHeader'
 import { PhotoGallery } from '@/components/dashboard/PhotoGallery'
 import { LeadActivity } from '@/components/dashboard/LeadActivity'
 import { ConversationPanel } from '@/components/dashboard/ConversationPanel'
+import { ConversationTakeover } from '@/components/dashboard/ConversationTakeover'
 import { type RequestRef } from '@/components/dashboard/TranscriptThread'
 import { OfferCard } from '@/components/dashboard/OfferCard'
 import { FollowUpCard } from '@/components/dashboard/FollowUpCard'
 import { AssigneeCard } from '@/components/dashboard/AssigneeCard'
-import { ResumeBotButton } from '@/components/dashboard/ResumeBotButton'
 import { PageShell } from '@/components/layout/PageShell'
 import { sentenceCase } from '@/lib/format'
 import { useAuth } from '@/auth/useAuth'
@@ -547,13 +547,18 @@ export function LeadDetail({ lead, users }: Props) {
         }
       />
 
-      {lead.needs_human && (
-        <Banner
+      {/* Human two-way takeover — surfaced prominently right under the header
+          when the conversation is handed off (bot muted). It carries its own
+          muted-state banner + Resume-bot action, the live transcript, and the
+          staff reply box. When NOT handed off it renders lower, in the
+          reference section (staff can still jump in — the first reply mutes the
+          bot). */}
+      {lead.needs_human && lead.conversation_id && (
+        <ConversationTakeover
           className="mb-4"
-          tone="danger"
-          title={t('detail.handoffTitle')}
-          description={t('detail.handoffDesc')}
-          action={<ResumeBotButton leadId={lead.id} />}
+          conversationId={lead.conversation_id}
+          leadId={lead.id}
+          needsHuman={lead.needs_human}
         />
       )}
 
@@ -885,6 +890,18 @@ export function LeadDetail({ lead, users }: Props) {
             )}
 
             <SiblingRequests siblings={lead.sibling_requests ?? []} />
+
+            {/* Takeover console for a not-yet-handed-off lead: available lower
+                in the reference section so staff can reply as a human on demand
+                (the first reply mutes the bot). The handed-off case renders it
+                prominently near the top instead. */}
+            {!lead.needs_human && lead.conversation_id && (
+              <ConversationTakeover
+                conversationId={lead.conversation_id}
+                leadId={lead.id}
+                needsHuman={lead.needs_human}
+              />
+            )}
 
             <LeadActivity leadId={lead.id} />
           </section>

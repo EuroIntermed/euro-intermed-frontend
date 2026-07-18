@@ -800,6 +800,51 @@ export async function resumeBot(leadId: string): Promise<void> {
   })
 }
 
+// --- Conversation takeover (human two-way) --------------------------------
+
+/**
+ * One message of a conversation transcript for the human-takeover panel
+ * (`GET /api/conversations/{id}/messages`). `role` is `user` (the customer),
+ * `assistant` (the bot, "Bogdan") or `human` (a staff reply). Rendered as plain
+ * text — content is user-supplied and never trusted as markup.
+ */
+export interface ConversationMessage {
+  id: string
+  role: 'user' | 'assistant' | 'human'
+  content: string
+  created_at: string
+}
+
+/**
+ * Full transcript of a conversation, oldest→newest, for the staff takeover
+ * panel. Unwraps the `{data:[...]}` envelope like the other list endpoints.
+ */
+export async function getConversationMessages(
+  conversationId: string,
+): Promise<ConversationMessage[]> {
+  const res = await authedFetch<{ data: ConversationMessage[] }>(
+    `/conversations/${encodeURIComponent(conversationId)}/messages`,
+  )
+  return res.data ?? []
+}
+
+/**
+ * Records a HUMAN reply on a conversation (`POST /api/conversations/{id}/messages`).
+ * On the first send the backend mutes the bot (takeover) and delivers the text to
+ * the customer over their channel; the returned `delivered` flag reports whether
+ * the channel delivery succeeded. Empty or over-long (>4000) text is rejected by
+ * the backend with a `400` surfaced as an {@link ApiError}.
+ */
+export async function sendHumanMessage(
+  conversationId: string,
+  text: string,
+): Promise<{ delivered: boolean }> {
+  return authedFetch<{ delivered: boolean }>(
+    `/conversations/${encodeURIComponent(conversationId)}/messages`,
+    { method: 'POST', body: JSON.stringify({ text }) },
+  )
+}
+
 // --- Users (admin; degrades gracefully on 403) ----------------------------
 
 export interface PublicUser {
