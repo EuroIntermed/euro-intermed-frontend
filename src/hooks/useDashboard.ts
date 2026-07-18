@@ -7,6 +7,8 @@ import { useAuth } from '@/auth/useAuth'
 import {
   listGroupInviteRequests,
   markGroupAdded,
+  listNewsletterOptIns,
+  markNewsletterExported,
   listLeads,
   getLeadDetail,
   getLeadActivity,
@@ -196,6 +198,40 @@ export function useMarkGroupAdded() {
     mutationFn: markGroupAdded,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['group-invites'] }),
+  })
+}
+
+/**
+ * Pending newsletter opt-ins (buyers who opted into the email newsletter,
+ * newest first). Staff-auth on the backend; a 403 resolves to an empty list so
+ * the overview worklist simply hides instead of erroring for a role that can't
+ * see it.
+ */
+export function useNewsletterOptIns() {
+  return useQuery({
+    queryKey: ['newsletter'],
+    queryFn: async () => {
+      try {
+        return await listNewsletterOptIns()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 403) return []
+        throw err
+      }
+    },
+  })
+}
+
+/**
+ * Mark a contact's newsletter opt-in as exported to the mailing tool. On
+ * success it invalidates ['newsletter'] so the row drops off the pending
+ * worklist.
+ */
+export function useMarkNewsletterExported() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: markNewsletterExported,
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['newsletter'] }),
   })
 }
 

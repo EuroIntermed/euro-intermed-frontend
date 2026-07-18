@@ -1085,6 +1085,44 @@ export async function markGroupAdded(contactId: string): Promise<void> {
   })
 }
 
+// --- Newsletter opt-in worklist (email newsletter opt-ins) ----------------
+
+/**
+ * NewsletterOptIn mirrors the backend newsletter worklist row: a buyer who
+ * opted in (via the agent) to the email newsletter and has NOT yet been
+ * exported to the mailing tool. The list returns only PENDING opt-ins, newest
+ * first; PATCHing `exported` drops the contact off the list. `email` is the
+ * export destination staff copy into the mailing tool (personal data —
+ * staff-only screen).
+ */
+export interface NewsletterOptIn {
+  contact_id: string
+  contact_name: string
+  company_name: string
+  email: string
+  vertical: string
+  asked_at: string
+  lead_id: string
+}
+
+/** Pending newsletter opt-ins (staff-auth), newest first. */
+export async function listNewsletterOptIns(): Promise<NewsletterOptIn[]> {
+  const res = await authedFetch<{ data: NewsletterOptIn[] }>('/newsletter')
+  return res.data ?? []
+}
+
+/**
+ * Mark a contact's newsletter opt-in as exported to the mailing tool. The row
+ * then drops off the pending worklist; the caller should invalidate
+ * ['newsletter'].
+ */
+export async function markNewsletterExported(contactId: string): Promise<void> {
+  await authedFetch(`/newsletter/${encodeURIComponent(contactId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ exported: true }),
+  })
+}
+
 // --- Inventory / listings (PalletClearance, cursor-paginated) -------------
 
 /**
