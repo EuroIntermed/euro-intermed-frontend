@@ -9,6 +9,10 @@ import {
   markGroupAdded,
   listNewsletterOptIns,
   markNewsletterExported,
+  listOfferSenders,
+  createOfferSender,
+  updateOfferSender,
+  deleteOfferSender,
   listLeads,
   getLeadDetail,
   getLeadActivity,
@@ -34,6 +38,7 @@ import {
   type CompanyFilters,
   type ListingFilters,
   type TaskFilters,
+  type SupplierSenderInput,
 } from '@/lib/api'
 
 /** Paginated, filtered lead list. Filters/cursor come from the URL. */
@@ -274,6 +279,56 @@ export function useMarkNewsletterExported() {
     mutationFn: markNewsletterExported,
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['newsletter'] }),
+  })
+}
+
+// --- Offer senders (supplier registry, Module G) ---------------------------
+
+/**
+ * Supplier offer-sender registry (staff-auth). The whole registry is fetched and
+ * cached under ['offer-senders']; the create/update/delete mutations below all
+ * invalidate that single key so every consumer refreshes after a change.
+ */
+export function useOfferSenders() {
+  return useQuery({
+    queryKey: ['offer-senders'],
+    queryFn: () => listOfferSenders(),
+  })
+}
+
+/** Register a new supplier sender; invalidates ['offer-senders'] on success. */
+export function useCreateOfferSender() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: SupplierSenderInput) => createOfferSender(body),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['offer-senders'] }),
+  })
+}
+
+/**
+ * Update a supplier sender (full replace of the editable fields — the caller
+ * submits the whole row incl. the current `active`). Invalidates
+ * ['offer-senders'] on success. Used for both the edit form and the active
+ * toggle.
+ */
+export function useUpdateOfferSender() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: SupplierSenderInput }) =>
+      updateOfferSender(id, body),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['offer-senders'] }),
+  })
+}
+
+/** Delete a supplier sender; invalidates ['offer-senders'] on success. */
+export function useDeleteOfferSender() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deleteOfferSender(id),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['offer-senders'] }),
   })
 }
 

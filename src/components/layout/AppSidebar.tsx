@@ -13,6 +13,7 @@ import {
   PackageX,
   SlidersHorizontal,
   Sun,
+  Truck,
   UserCog,
   Workflow,
 } from 'lucide-react'
@@ -62,6 +63,7 @@ const SECTION_PREFIXES = [
   '/dashboard/handoffs',
   '/dashboard/tasks',
   '/dashboard/kpi',
+  '/dashboard/suppliers',
   '/dashboard/users',
   '/dashboard/widget',
 ]
@@ -104,6 +106,7 @@ const KPI_ITEMS: NavItem[] = [
 
 // Admin / configuration — separated from the daily workflow nav.
 const ADMIN_ITEMS: NavItem[] = [
+  { to: '/dashboard/suppliers', labelKey: 'nav.suppliers', icon: Truck },
   { to: '/dashboard/users', labelKey: 'nav.users', icon: UserCog, adminOnly: true },
   { to: '/dashboard/widget', labelKey: 'nav.widget', icon: Code2 },
 ]

@@ -71,6 +71,9 @@ const WidgetPage = lazyWithReload(() =>
 const UsersPage = lazyWithReload(() =>
   import('@/pages/UsersPage').then((m) => ({ default: m.UsersPage })),
 )
+const SuppliersPage = lazyWithReload(() =>
+  import('@/pages/SuppliersPage').then((m) => ({ default: m.SuppliersPage })),
+)
 const TodayAngrosistPage = lazyWithReload(() =>
   import('@/pages/kpi/TodayAngrosistPage').then((m) => ({
     default: m.TodayAngrosistPage,
@@ -162,6 +165,7 @@ function AppRoutes() {
             element={<KpiSettingsPage />}
           />
           <Route path="/dashboard/users" element={<UsersPage />} />
+          <Route path="/dashboard/suppliers" element={<SuppliersPage />} />
           <Route path="/dashboard/widget" element={<WidgetPage />} />
           {/* Back-compat: the widget hub used to live at /test-widget. */}
           <Route

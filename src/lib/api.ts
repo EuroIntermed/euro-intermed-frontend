@@ -1168,6 +1168,96 @@ export async function markNewsletterExported(contactId: string): Promise<void> {
   })
 }
 
+// --- Offer senders (supplier registry, Module G / G0, staff-auth) ----------
+
+/**
+ * Vertical an offer sender's mail is routed to. `angrosist` offers are the
+ * redistributable ones (they get the copyable WhatsApp preview);
+ * `palletclearance` offers are dashboard-only (confidential). An empty string
+ * means "any / unset" — the sender is not pinned to a vertical.
+ */
+export type OfferSenderVertical = 'angrosist' | 'palletclearance' | ''
+
+/**
+ * SupplierSender mirrors the backend `offer_senders` row (Module G §0): a
+ * whitelisted supplier email offers are accepted from, tagged with product
+ * categories + a vertical. The tags act as a filter (only whitelisted senders
+ * are ingested) AND a router (they tell the admin which WhatsApp group an offer
+ * belongs to). `email` is personal data — staff-only screen, never logged.
+ */
+export interface SupplierSender {
+  id: string
+  email: string
+  name: string
+  tags: string[]
+  vertical: OfferSenderVertical
+  active: boolean
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+/** Editable fields of a SupplierSender — the body of create/update. */
+export interface SupplierSenderInput {
+  email: string
+  name?: string
+  tags: string[]
+  vertical?: OfferSenderVertical
+  active?: boolean
+  notes?: string
+}
+
+/**
+ * Lists the supplier offer-sender registry (staff-auth). Pass `active: true` to
+ * fetch only enabled senders; omit it for the full list. Unwraps the
+ * `{data:[...]}` envelope like the other list endpoints.
+ */
+export async function listOfferSenders(
+  opts?: { active?: boolean },
+): Promise<SupplierSender[]> {
+  const qs = opts?.active ? '?active=true' : ''
+  const res = await authedFetch<{ data: SupplierSender[] }>(
+    `/offer-senders${qs}`,
+  )
+  return res.data ?? []
+}
+
+/**
+ * Registers a new supplier sender (staff-auth). Returns `201` + the created row;
+ * a duplicate email yields `409` surfaced as an {@link ApiError} the UI maps to a
+ * friendly toast.
+ */
+export async function createOfferSender(
+  body: SupplierSenderInput,
+): Promise<SupplierSender> {
+  return authedFetch<SupplierSender>('/offer-senders', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * Updates a supplier sender (staff-auth). PATCH is a FULL REPLACE of the editable
+ * fields (`name, tags, vertical, active, notes`) — the caller must submit the
+ * WHOLE row (including the current `active` value), not just the changed keys.
+ */
+export async function updateOfferSender(
+  id: string,
+  body: SupplierSenderInput,
+): Promise<SupplierSender> {
+  return authedFetch<SupplierSender>(
+    `/offer-senders/${encodeURIComponent(id)}`,
+    { method: 'PATCH', body: JSON.stringify(body) },
+  )
+}
+
+/** Removes a supplier sender from the registry (staff-auth). 204 on success. */
+export async function deleteOfferSender(id: string): Promise<void> {
+  await authedFetch<void>(`/offer-senders/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
 // --- Inventory / listings (PalletClearance, cursor-paginated) -------------
 
 /**
