@@ -13,6 +13,11 @@ import {
   createOfferSender,
   updateOfferSender,
   deleteOfferSender,
+  listOfferBatches,
+  getOfferBatch,
+  updateOfferItem,
+  updateOfferBatch,
+  getOfferWhatsApp,
   listLeads,
   getLeadDetail,
   getLeadActivity,
@@ -39,6 +44,9 @@ import {
   type ListingFilters,
   type TaskFilters,
   type SupplierSenderInput,
+  type OfferBatchFilters,
+  type OfferItemInput,
+  type OfferBatchUpdate,
 } from '@/lib/api'
 
 /** Paginated, filtered lead list. Filters/cursor come from the URL. */
@@ -329,6 +337,80 @@ export function useDeleteOfferSender() {
     mutationFn: (id: string) => deleteOfferSender(id),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ['offer-senders'] }),
+  })
+}
+
+// --- Supplier offers (Module G / G4+G5 review) -----------------------------
+
+/**
+ * Supplier offer-batch worklist (staff-auth), newest first. Filters
+ * (`status`/`vertical`) come from the URL and travel in the query key so each
+ * filter combination caches independently.
+ */
+export function useOfferBatches(filters: OfferBatchFilters = {}) {
+  return useQuery({
+    queryKey: ['offer-batches', filters],
+    queryFn: () => listOfferBatches(filters),
+    placeholderData: (prev) => prev,
+  })
+}
+
+/** One batch + its parsed items for the review screen. */
+export function useOfferBatch(id: string) {
+  return useQuery({
+    queryKey: ['offer-batch', id],
+    queryFn: () => getOfferBatch(id),
+    enabled: !!id,
+  })
+}
+
+/**
+ * Edit / approve / reject one offer item (full replace of the row). On success
+ * it invalidates the parent batch detail (`['offer-batch', batchId]`) so the
+ * refreshed item + any denormalized batch counter re-render, plus the worklist
+ * (`['offer-batches']`). Toast/error surfacing lives in the calling component.
+ */
+export function useUpdateOfferItem(batchId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: OfferItemInput }) =>
+      updateOfferItem(id, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offer-batch', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['offer-batches'] })
+    },
+  })
+}
+
+/**
+ * Update a batch note and/or move its status (e.g. "Mark reviewed"). Invalidates
+ * the batch detail + the worklist on success.
+ */
+export function useUpdateOfferBatch(batchId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: OfferBatchUpdate) => updateOfferBatch(batchId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['offer-batch', batchId] })
+      queryClient.invalidateQueries({ queryKey: ['offer-batches'] })
+    },
+  })
+}
+
+/**
+ * Lazy WhatsApp preview for one batch — fetched ON DEMAND (only when the preview
+ * dialog opens, `enabled: true`). A PalletClearance batch resolves to the typed
+ * `{ confidential: true }` result (the 409 is handled in the fetcher, not thrown),
+ * so the dialog shows the dashboard-only note instead of erroring.
+ */
+export function useOfferWhatsApp(batchId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['offer-whatsapp', batchId],
+    queryFn: () => getOfferWhatsApp(batchId),
+    enabled: enabled && !!batchId,
+    // The text is derived from approved items; don't cache it stale across opens.
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 

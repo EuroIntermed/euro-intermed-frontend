@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  PackageOpen,
   PackageX,
   SlidersHorizontal,
   Sun,
@@ -26,6 +27,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
@@ -41,6 +43,7 @@ import {
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 import { LanguageToggle } from '@/components/layout/LanguageToggle'
 import { useAuth } from '@/auth/useAuth'
+import { useOfferBatches } from '@/hooks/useDashboard'
 import { useT } from '@/lib/i18n'
 import type { TKey } from '@/lib/i18n/types'
 
@@ -62,6 +65,7 @@ const SECTION_PREFIXES = [
   '/dashboard/companies',
   '/dashboard/handoffs',
   '/dashboard/tasks',
+  '/dashboard/offers',
   '/dashboard/kpi',
   '/dashboard/suppliers',
   '/dashboard/users',
@@ -84,6 +88,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard/companies', labelKey: 'nav.companies', icon: Building2 },
   { to: '/dashboard/handoffs', labelKey: 'nav.handoffs', icon: Inbox },
   { to: '/dashboard/tasks', labelKey: 'nav.tasks', icon: ListTodo },
+  { to: '/dashboard/offers', labelKey: 'nav.offers', icon: PackageOpen },
 ]
 
 // KPI action boards (KPI_PLAN §E.2) — analytics, grouped away from the daily nav.
@@ -118,6 +123,11 @@ export function AppSidebar() {
 
   const kpiItems = KPI_ITEMS.filter((i) => !i.adminOnly || isAdmin)
   const adminItems = ADMIN_ITEMS.filter((i) => !i.adminOnly || isAdmin)
+
+  // Count of offer batches awaiting review (status=parsed), shown as a badge on
+  // the "Oferte furnizori" nav item. A 403/empty simply renders no badge.
+  const { data: pendingOffers } = useOfferBatches({ status: 'parsed' })
+  const offerReviewCount = pendingOffers?.length ?? 0
 
   function isActive(to: string) {
     // Overview is the dashboard root — match it exactly.
@@ -173,6 +183,9 @@ export function AppSidebar() {
                       <span>{t(item.labelKey)}</span>
                     </Link>
                   </SidebarMenuButton>
+                  {item.to === '/dashboard/offers' && offerReviewCount > 0 && (
+                    <SidebarMenuBadge>{offerReviewCount}</SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

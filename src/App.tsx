@@ -74,6 +74,14 @@ const UsersPage = lazyWithReload(() =>
 const SuppliersPage = lazyWithReload(() =>
   import('@/pages/SuppliersPage').then((m) => ({ default: m.SuppliersPage })),
 )
+const OffersPage = lazyWithReload(() =>
+  import('@/pages/OffersPage').then((m) => ({ default: m.OffersPage })),
+)
+const OfferReviewPage = lazyWithReload(() =>
+  import('@/pages/OfferReviewPage').then((m) => ({
+    default: m.OfferReviewPage,
+  })),
+)
 const TodayAngrosistPage = lazyWithReload(() =>
   import('@/pages/kpi/TodayAngrosistPage').then((m) => ({
     default: m.TodayAngrosistPage,
@@ -166,6 +174,11 @@ function AppRoutes() {
           />
           <Route path="/dashboard/users" element={<UsersPage />} />
           <Route path="/dashboard/suppliers" element={<SuppliersPage />} />
+          <Route path="/dashboard/offers" element={<OffersPage />} />
+          <Route
+            path="/dashboard/offers/:batchId"
+            element={<OfferReviewPage />}
+          />
           <Route path="/dashboard/widget" element={<WidgetPage />} />
           {/* Back-compat: the widget hub used to live at /test-widget. */}
           <Route

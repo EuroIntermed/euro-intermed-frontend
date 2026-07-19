@@ -1258,6 +1258,207 @@ export async function deleteOfferSender(id: string): Promise<void> {
   })
 }
 
+// --- Supplier offers (Module G / G4+G5 review, staff-auth) -----------------
+
+/**
+ * Vertical an ingested offer batch belongs to (from its intake mailbox, Module G
+ * §0.7). `angrosist` batches are redistributable — they get the copyable
+ * WhatsApp preview; `palletclearance` batches are confidential (dashboard-only,
+ * no WhatsApp broadcast).
+ */
+export type OfferVertical = 'angrosist' | 'palletclearance'
+
+/**
+ * Lifecycle of one ingested supplier email (offer_batches.status, Module G §3):
+ * `received` → `parsing` → `parsed` (ready for review) → `reviewed`; `sent` once
+ * an Angrosist batch has been posted to WhatsApp; `error` on a parse failure.
+ */
+export type OfferBatchStatus =
+  | 'received'
+  | 'parsing'
+  | 'parsed'
+  | 'error'
+  | 'reviewed'
+  | 'sent'
+
+/** Review state of one parsed product line (offer_items.status). */
+export type OfferItemStatus = 'draft' | 'approved' | 'rejected'
+
+/**
+ * OfferBatch mirrors the backend `offer_batches` row (Module G §3): one ingested
+ * supplier email surfaced in the review worklist. `supplier_email` is personal
+ * data — staff-only screen, never logged. `error` carries a parse-failure detail
+ * (no PII); `item_count` is the denormalized parsed-line count.
+ */
+export interface OfferBatch {
+  id: string
+  supplier_email: string
+  supplier_name: string
+  subject: string
+  vertical: OfferVertical
+  status: OfferBatchStatus
+  item_count: number
+  error: string
+  notes: string
+  received_at: string
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * OfferItem mirrors the backend `offer_items` row (Module G §3): one standardized
+ * product line the AI parsed out of a batch. `quantity`/`price`/`confidence` are
+ * nullable on the wire (parser could not read them); `category_id` is the
+ * resolved canonical taxonomy id (passthrough — edited via `category_text`).
+ * `confidence` (0..1, parser self-assessment) drives review priority — the lowest
+ * is surfaced first.
+ */
+export interface OfferItem {
+  id: string
+  batch_id: string
+  product_name: string
+  quantity: number | null
+  unit: string
+  price: number | null
+  currency: string
+  category_id: string
+  category_text: string
+  supplier: string
+  status: OfferItemStatus
+  confidence: number | null
+  created_at: string
+  updated_at: string
+}
+
+/** A batch plus its parsed items (`GET /api/offers/{batchId}`). */
+export interface OfferBatchDetail {
+  batch: OfferBatch
+  items: OfferItem[]
+}
+
+/**
+ * Editable fields of an OfferItem — the body of `PATCH /api/offers/items/{id}`.
+ * The PATCH is a FULL REPLACE: the caller must submit the WHOLE row (including
+ * the fields it is not changing), not just the changed keys.
+ */
+export interface OfferItemInput {
+  product_name: string
+  quantity: number | null
+  unit: string
+  price: number | null
+  currency: string
+  category_id: string
+  category_text: string
+  supplier: string
+  status: OfferItemStatus
+}
+
+/** Batch-level edit (`PATCH /api/offers/{batchId}`): admin note and/or status. */
+export interface OfferBatchUpdate {
+  notes?: string
+  status?: OfferBatchStatus
+}
+
+/**
+ * Formatted WhatsApp preview for an Angrosist batch (`GET
+ * /api/offers/{batchId}/whatsapp`): the copyable `text` staff paste into the
+ * offers group, the `suggested_group` (from the sender tags), the item count and
+ * an optional `hint`. Rendered as plain text — never as markup.
+ */
+export interface OfferWhatsAppPreview {
+  text: string
+  vertical: string
+  suggested_group: string
+  item_count: number
+  hint?: string
+}
+
+/**
+ * Result of requesting a batch's WhatsApp preview. A PalletClearance batch is
+ * confidential (PC is never publicly redistributed) — the backend answers `409`
+ * for it, which we surface as a typed `{ confidential: true }` result (NOT a
+ * thrown error), so the dialog shows the "dashboard-only" note instead of an
+ * error toast.
+ */
+export type OfferWhatsAppResult =
+  | { confidential: false; preview: OfferWhatsAppPreview }
+  | { confidential: true }
+
+export interface OfferBatchFilters {
+  status?: string
+  vertical?: string
+}
+
+/**
+ * Lists the supplier offer-batch worklist (staff-auth), newest first. Optional
+ * `status`/`vertical` narrow it (e.g. `status=parsed` = "needs review"). Unwraps
+ * the `{data:[...]}` envelope like the other list endpoints.
+ */
+export async function listOfferBatches(
+  filters: OfferBatchFilters = {},
+): Promise<OfferBatch[]> {
+  const params = new URLSearchParams()
+  if (filters.status) params.set('status', filters.status)
+  if (filters.vertical) params.set('vertical', filters.vertical)
+  const qs = params.toString()
+  const res = await authedFetch<{ data: OfferBatch[] }>(
+    `/offers${qs ? `?${qs}` : ''}`,
+  )
+  return res.data ?? []
+}
+
+/** A batch + its parsed items for the review screen (staff-auth). */
+export async function getOfferBatch(id: string): Promise<OfferBatchDetail> {
+  return authedFetch<OfferBatchDetail>(`/offers/${encodeURIComponent(id)}`)
+}
+
+/**
+ * Edits / approves / rejects one parsed offer item (staff-auth). The PATCH is a
+ * FULL REPLACE — the caller submits the whole row (see {@link OfferItemInput}).
+ */
+export async function updateOfferItem(
+  id: string,
+  body: OfferItemInput,
+): Promise<OfferItem> {
+  return authedFetch<OfferItem>(`/offers/items/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+/** Updates a batch note and/or moves its status (e.g. to `reviewed`). Staff-auth. */
+export async function updateOfferBatch(
+  id: string,
+  body: OfferBatchUpdate,
+): Promise<OfferBatch> {
+  return authedFetch<OfferBatch>(`/offers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
+}
+
+/**
+ * Fetches a batch's WhatsApp preview (staff-auth). A PalletClearance batch is
+ * confidential: the backend returns `409` — we catch that and return a typed
+ * `{ confidential: true }` result instead of throwing, so the caller renders the
+ * "dashboard-only" state rather than an error. Any other non-2xx still throws.
+ */
+export async function getOfferWhatsApp(
+  id: string,
+): Promise<OfferWhatsAppResult> {
+  try {
+    const preview = await authedFetch<OfferWhatsAppPreview>(
+      `/offers/${encodeURIComponent(id)}/whatsapp`,
+    )
+    return { confidential: false, preview }
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 409) {
+      return { confidential: true }
+    }
+    throw err
+  }
+}
+
 // --- Inventory / listings (PalletClearance, cursor-paginated) -------------
 
 /**
