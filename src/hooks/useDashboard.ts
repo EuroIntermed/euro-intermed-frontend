@@ -47,6 +47,7 @@ import {
   type OfferBatchFilters,
   type OfferItemInput,
   type OfferBatchUpdate,
+  type WorklistStatus,
 } from '@/lib/api'
 
 /** Paginated, filtered lead list. Filters/cursor come from the URL. */
@@ -224,28 +225,33 @@ export function useHandoffs() {
 }
 
 /**
- * Pending group-join requests (buyers who opted into the WhatsApp offers group,
- * newest first). Staff-auth on the backend; a 403 resolves to an empty list so
- * the overview worklist simply hides instead of erroring for a role that can't
- * see it.
+ * Group-join requests (buyers who opted into the WhatsApp offers group, newest
+ * first), filtered by worklist `status` (default `pending`). The status travels
+ * in the query key so switching the filter refetches its own cached slice;
+ * `placeholderData` keeps the previous slice visible while the next loads, so
+ * the filter control doesn't flash back to a skeleton on switch. Staff-auth on
+ * the backend; a 403 resolves to an empty list so the overview worklist simply
+ * hides instead of erroring for a role that can't see it.
  */
-export function useGroupInviteRequests() {
+export function useGroupInviteRequests(status: WorklistStatus = 'pending') {
   return useQuery({
-    queryKey: ['group-invites'],
+    queryKey: ['group-invites', status],
     queryFn: async () => {
       try {
-        return await listGroupInviteRequests()
+        return await listGroupInviteRequests(status)
       } catch (err) {
         if (err instanceof ApiError && err.status === 403) return []
         throw err
       }
     },
+    placeholderData: (prev) => prev,
   })
 }
 
 /**
  * Mark a contact as manually added to the offers group. On success it
- * invalidates ['group-invites'] so the row drops off the pending worklist.
+ * invalidates every ['group-invites', *] slice so the pending queue drops the
+ * row and the handled/all slices pick it up.
  */
 export function useMarkGroupAdded() {
   const queryClient = useQueryClient()
@@ -257,29 +263,32 @@ export function useMarkGroupAdded() {
 }
 
 /**
- * Pending newsletter opt-ins (buyers who opted into the email newsletter,
- * newest first). Staff-auth on the backend; a 403 resolves to an empty list so
- * the overview worklist simply hides instead of erroring for a role that can't
- * see it.
+ * Newsletter opt-ins (buyers who opted into the email newsletter, newest
+ * first), filtered by worklist `status` (default `pending`). The status travels
+ * in the query key so switching the filter refetches its own cached slice;
+ * `placeholderData` keeps the previous slice visible while the next loads.
+ * Staff-auth on the backend; a 403 resolves to an empty list so the overview
+ * worklist simply hides instead of erroring for a role that can't see it.
  */
-export function useNewsletterOptIns() {
+export function useNewsletterOptIns(status: WorklistStatus = 'pending') {
   return useQuery({
-    queryKey: ['newsletter'],
+    queryKey: ['newsletter', status],
     queryFn: async () => {
       try {
-        return await listNewsletterOptIns()
+        return await listNewsletterOptIns(status)
       } catch (err) {
         if (err instanceof ApiError && err.status === 403) return []
         throw err
       }
     },
+    placeholderData: (prev) => prev,
   })
 }
 
 /**
  * Mark a contact's newsletter opt-in as exported to the mailing tool. On
- * success it invalidates ['newsletter'] so the row drops off the pending
- * worklist.
+ * success it invalidates every ['newsletter', *] slice so the pending queue
+ * drops the row and the handled/all slices pick it up.
  */
 export function useMarkNewsletterExported() {
   const queryClient = useQueryClient()

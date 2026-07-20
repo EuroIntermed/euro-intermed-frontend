@@ -1,14 +1,16 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Check, Phone, UsersRound } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { sentenceCase } from '@/lib/format'
 import { useGroupInviteRequests, useMarkGroupAdded } from '@/hooks/useDashboard'
 import { useEnums, useT, formatDateTime } from '@/lib/i18n'
-import type { GroupInviteRequest } from '@/lib/api'
+import type { GroupInviteRequest, WorklistStatus } from '@/lib/api'
 
 /**
  * One opted-in buyer awaiting manual addition to the WhatsApp offers group.
@@ -72,15 +74,32 @@ function GroupInviteRow({ req }: { req: GroupInviteRequest }) {
           </div>
         </div>
 
-        <Button
-          size="sm"
-          onClick={() => mark.mutate(req.contact_id)}
-          disabled={mark.isPending}
-          className="shrink-0"
-        >
-          <Check className="size-4" />
-          {t('overview.groupInviteAdd')}
-        </Button>
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          {req.status === 'pending' ? (
+            <Button
+              size="sm"
+              onClick={() => mark.mutate(req.contact_id)}
+              disabled={mark.isPending}
+            >
+              <Check className="size-4" />
+              {t('overview.groupInviteAdd')}
+            </Button>
+          ) : (
+            <>
+              <Badge variant="outline" className="gap-1">
+                <Check className="size-3" />
+                {t('overview.statusAdded')}
+              </Badge>
+              {req.added_at && (
+                <span className="text-xs text-muted-foreground">
+                  {t('overview.handledOn', {
+                    date: formatDateTime(lang, req.added_at),
+                  })}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
@@ -96,8 +115,11 @@ function GroupInviteRow({ req }: { req: GroupInviteRequest }) {
  */
 export function GroupInviteSection() {
   const { t } = useT()
-  const query = useGroupInviteRequests()
+  const [status, setStatus] = useState<WorklistStatus>('pending')
+  const query = useGroupInviteRequests(status)
 
+  // First load (no cached slice yet): skeletons. On a filter switch the previous
+  // slice stays visible via `placeholderData`, so the control never flashes out.
   if (query.isLoading) {
     return (
       <div className="flex flex-col gap-3">
@@ -113,16 +135,6 @@ export function GroupInviteSection() {
 
   const requests = query.data ?? []
 
-  if (requests.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-4 text-sm text-muted-foreground">
-          {t('overview.groupInviteEmpty')}
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <div
       className={cn(
@@ -130,17 +142,44 @@ export function GroupInviteSection() {
         'border-brand/40 bg-brand-soft/30',
       )}
     >
-      <div className="flex items-center gap-2 px-1">
+      <div className="flex flex-wrap items-center gap-2 px-1">
         <span className="flex size-7 items-center justify-center rounded-lg bg-brand-soft text-brand">
           <UsersRound className="size-4" />
         </span>
         <Badge variant="secondary" className="tabular-nums">
-          {t('overview.groupInviteCount', { n: requests.length })}
+          {status === 'pending'
+            ? t('overview.groupInviteCount', { n: requests.length })
+            : t('overview.worklistCount', { n: requests.length })}
         </Badge>
+        <Tabs
+          value={status}
+          onValueChange={(v) => setStatus(v as WorklistStatus)}
+          className="ml-auto"
+        >
+          <TabsList aria-label={t('overview.filterAria')}>
+            <TabsTrigger value="pending">
+              {t('overview.filterPending')}
+            </TabsTrigger>
+            <TabsTrigger value="handled">
+              {t('overview.filterHandled')}
+            </TabsTrigger>
+            <TabsTrigger value="all">{t('overview.filterAll')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
-      {requests.map((req) => (
-        <GroupInviteRow key={req.contact_id} req={req} />
-      ))}
+      {requests.length === 0 ? (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            {status === 'pending'
+              ? t('overview.groupInviteEmpty')
+              : t('overview.worklistEmpty')}
+          </CardContent>
+        </Card>
+      ) : (
+        requests.map((req) => (
+          <GroupInviteRow key={req.contact_id} req={req} />
+        ))
+      )}
     </div>
   )
 }

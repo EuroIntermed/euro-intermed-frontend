@@ -6,13 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import {
   useNewsletterOptIns,
   useMarkNewsletterExported,
 } from '@/hooks/useDashboard'
 import { useEnums, useT, formatDateTime } from '@/lib/i18n'
-import type { NewsletterOptIn } from '@/lib/api'
+import type { NewsletterOptIn, WorklistStatus } from '@/lib/api'
 
 /**
  * One buyer who opted into the email newsletter and still needs to be exported
@@ -92,16 +93,33 @@ function NewsletterRow({ req }: { req: NewsletterOptIn }) {
           </div>
         </div>
 
-        <Button
-          size="sm"
-          onClick={() => mark.mutate(req.contact_id)}
-          disabled={mark.isPending}
-          aria-label={t('overview.newsletterExportedLabel')}
-          className="shrink-0"
-        >
-          <Check className="size-4" />
-          {t('overview.newsletterExported')}
-        </Button>
+        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
+          {req.status === 'pending' ? (
+            <Button
+              size="sm"
+              onClick={() => mark.mutate(req.contact_id)}
+              disabled={mark.isPending}
+              aria-label={t('overview.newsletterExportedLabel')}
+            >
+              <Check className="size-4" />
+              {t('overview.newsletterExported')}
+            </Button>
+          ) : (
+            <>
+              <Badge variant="outline" className="gap-1">
+                <Check className="size-3" />
+                {t('overview.statusExported')}
+              </Badge>
+              {req.exported_at && (
+                <span className="text-xs text-muted-foreground">
+                  {t('overview.handledOn', {
+                    date: formatDateTime(lang, req.exported_at),
+                  })}
+                </span>
+              )}
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
@@ -117,8 +135,11 @@ function NewsletterRow({ req }: { req: NewsletterOptIn }) {
  */
 export function NewsletterSection() {
   const { t } = useT()
-  const query = useNewsletterOptIns()
+  const [status, setStatus] = useState<WorklistStatus>('pending')
+  const query = useNewsletterOptIns(status)
 
+  // First load (no cached slice yet): skeletons. On a filter switch the previous
+  // slice stays visible via `placeholderData`, so the control never flashes out.
   if (query.isLoading) {
     return (
       <div className="flex flex-col gap-3">
@@ -134,16 +155,6 @@ export function NewsletterSection() {
 
   const requests = query.data ?? []
 
-  if (requests.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-4 text-sm text-muted-foreground">
-          {t('overview.newsletterEmpty')}
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <div
       className={cn(
@@ -151,17 +162,44 @@ export function NewsletterSection() {
         'border-brand/40 bg-brand-soft/30',
       )}
     >
-      <div className="flex items-center gap-2 px-1">
+      <div className="flex flex-wrap items-center gap-2 px-1">
         <span className="flex size-7 items-center justify-center rounded-lg bg-brand-soft text-brand">
           <Mail className="size-4" />
         </span>
         <Badge variant="secondary" className="tabular-nums">
-          {t('overview.newsletterCount', { n: requests.length })}
+          {status === 'pending'
+            ? t('overview.newsletterCount', { n: requests.length })
+            : t('overview.worklistCount', { n: requests.length })}
         </Badge>
+        <Tabs
+          value={status}
+          onValueChange={(v) => setStatus(v as WorklistStatus)}
+          className="ml-auto"
+        >
+          <TabsList aria-label={t('overview.filterAria')}>
+            <TabsTrigger value="pending">
+              {t('overview.filterPending')}
+            </TabsTrigger>
+            <TabsTrigger value="handled">
+              {t('overview.filterHandled')}
+            </TabsTrigger>
+            <TabsTrigger value="all">{t('overview.filterAll')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
-      {requests.map((req) => (
-        <NewsletterRow key={req.contact_id} req={req} />
-      ))}
+      {requests.length === 0 ? (
+        <Card>
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            {status === 'pending'
+              ? t('overview.newsletterEmpty')
+              : t('overview.worklistEmpty')}
+          </CardContent>
+        </Card>
+      ) : (
+        requests.map((req) => (
+          <NewsletterRow key={req.contact_id} req={req} />
+        ))
+      )}
     </div>
   )
 }

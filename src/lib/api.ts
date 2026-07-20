@@ -1096,10 +1096,19 @@ export async function listHandoffs(): Promise<HandoffListPage> {
 // --- Group-invite worklist (WhatsApp "offers" group opt-ins) ---------------
 
 /**
+ * Which slice of a worklist to fetch. `pending` (the default) is the actionable
+ * queue; `handled` shows already-processed rows; `all` shows both. Sent to the
+ * backend as `?status=` — omitted entirely for `pending` to stay back-compatible
+ * with the original pending-only endpoints.
+ */
+export type WorklistStatus = 'pending' | 'handled' | 'all'
+
+/**
  * GroupInviteRequest mirrors the backend group-invite worklist row: a buyer who
- * opted in (via the agent) to join the WhatsApp "offers" group and has NOT yet
- * been added by staff. The list returns only PENDING requests, newest first;
- * PATCHing `added` drops the contact off the list.
+ * opted in (via the agent) to join the WhatsApp "offers" group. `status` is
+ * `pending` until staff add them, then `added`; `added_at` carries the handled
+ * timestamp (null while pending). The list defaults to PENDING rows, newest
+ * first; PATCHing `added` moves the contact to the handled slice.
  */
 export interface GroupInviteRequest {
   contact_id: string
@@ -1111,11 +1120,21 @@ export interface GroupInviteRequest {
   note?: string
   asked_at: string
   lead_id?: string
+  status: 'pending' | 'added'
+  added_at: string | null
 }
 
-/** Pending group-join requests (staff-auth), newest first. */
-export async function listGroupInviteRequests(): Promise<GroupInviteRequest[]> {
-  const res = await authedFetch<{ data: GroupInviteRequest[] }>('/group-invites')
+/**
+ * Group-join requests (staff-auth), newest first. Defaults to the pending slice;
+ * pass `handled`/`all` to include contacts already added to the group.
+ */
+export async function listGroupInviteRequests(
+  status: WorklistStatus = 'pending',
+): Promise<GroupInviteRequest[]> {
+  const qs = status === 'pending' ? '' : `?status=${status}`
+  const res = await authedFetch<{ data: GroupInviteRequest[] }>(
+    `/group-invites${qs}`,
+  )
   return res.data ?? []
 }
 
@@ -1134,10 +1153,11 @@ export async function markGroupAdded(contactId: string): Promise<void> {
 
 /**
  * NewsletterOptIn mirrors the backend newsletter worklist row: a buyer who
- * opted in (via the agent) to the email newsletter and has NOT yet been
- * exported to the mailing tool. The list returns only PENDING opt-ins, newest
- * first; PATCHing `exported` drops the contact off the list. `email` is the
- * export destination staff copy into the mailing tool (personal data —
+ * opted in (via the agent) to the email newsletter. `status` is `pending` until
+ * staff export them, then `exported`; `exported_at` carries the handled
+ * timestamp (null while pending). The list defaults to PENDING opt-ins, newest
+ * first; PATCHing `exported` moves the contact to the handled slice. `email` is
+ * the export destination staff copy into the mailing tool (personal data —
  * staff-only screen).
  */
 export interface NewsletterOptIn {
@@ -1148,11 +1168,19 @@ export interface NewsletterOptIn {
   vertical: string
   asked_at: string
   lead_id: string
+  status: 'pending' | 'exported'
+  exported_at: string | null
 }
 
-/** Pending newsletter opt-ins (staff-auth), newest first. */
-export async function listNewsletterOptIns(): Promise<NewsletterOptIn[]> {
-  const res = await authedFetch<{ data: NewsletterOptIn[] }>('/newsletter')
+/**
+ * Newsletter opt-ins (staff-auth), newest first. Defaults to the pending slice;
+ * pass `handled`/`all` to include contacts already exported to the mailing tool.
+ */
+export async function listNewsletterOptIns(
+  status: WorklistStatus = 'pending',
+): Promise<NewsletterOptIn[]> {
+  const qs = status === 'pending' ? '' : `?status=${status}`
+  const res = await authedFetch<{ data: NewsletterOptIn[] }>(`/newsletter${qs}`)
   return res.data ?? []
 }
 
