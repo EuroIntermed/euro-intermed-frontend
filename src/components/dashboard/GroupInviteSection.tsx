@@ -1,125 +1,30 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Check, Phone, UsersRound } from 'lucide-react'
+import { ArrowRight, UsersRound } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { GroupInviteRow } from '@/components/dashboard/worklist/GroupInviteRow'
 import { cn } from '@/lib/utils'
-import { sentenceCase } from '@/lib/format'
-import { useGroupInviteRequests, useMarkGroupAdded } from '@/hooks/useDashboard'
-import { useEnums, useT, formatDateTime } from '@/lib/i18n'
-import type { GroupInviteRequest, WorklistStatus } from '@/lib/api'
+import { useGroupInviteRequests } from '@/hooks/useDashboard'
+import { useT } from '@/lib/i18n'
+
+// How many pending rows the compact overview preview shows before collapsing the
+// rest behind a "+N more" hint; the full list lives on the dedicated page.
+const PREVIEW_LIMIT = 3
 
 /**
- * One opted-in buyer awaiting manual addition to the WhatsApp offers group.
- * Shows who they are, their vertical + interests (so an admin knows which group
- * to add them to), an optional note/phone/lead deep-link, and a primary
- * "Added to group" action that marks them done (the row then drops off the
- * pending worklist via query invalidation).
- */
-function GroupInviteRow({ req }: { req: GroupInviteRequest }) {
-  const { t, lang } = useT()
-  const { verticalLabel } = useEnums()
-  const mark = useMarkGroupAdded()
-
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">{req.contact_name}</span>
-            <span className="text-sm text-muted-foreground">
-              {req.company_name}
-            </span>
-            {req.vertical && (
-              <Badge variant="secondary">{verticalLabel(req.vertical)}</Badge>
-            )}
-          </div>
-
-          {req.interests.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {req.interests.map((interest, i) => (
-                <Badge key={`${interest}-${i}`} variant="outline">
-                  {sentenceCase(interest)}
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {req.note && (
-            <p className="mt-2 text-sm text-muted-foreground break-words">
-              {req.note}
-            </p>
-          )}
-
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-            <span>{formatDateTime(lang, req.asked_at)}</span>
-            {req.phone && (
-              <span className="inline-flex items-center gap-1 tabular-nums">
-                <Phone className="size-3" />
-                {req.phone}
-              </span>
-            )}
-            {req.lead_id && (
-              <Link
-                to={`/dashboard/${req.lead_id}`}
-                className="inline-flex items-center gap-1 text-brand hover:underline"
-              >
-                {t('overview.groupInviteViewLead')}
-                <ArrowRight className="size-3" />
-              </Link>
-            )}
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-          {req.status === 'pending' ? (
-            <Button
-              size="sm"
-              onClick={() => mark.mutate(req.contact_id)}
-              disabled={mark.isPending}
-            >
-              <Check className="size-4" />
-              {t('overview.groupInviteAdd')}
-            </Button>
-          ) : (
-            <>
-              <Badge variant="outline" className="gap-1">
-                <Check className="size-3" />
-                {t('overview.statusAdded')}
-              </Badge>
-              {req.added_at && (
-                <span className="text-xs text-muted-foreground">
-                  {t('overview.handledOn', {
-                    date: formatDateTime(lang, req.added_at),
-                  })}
-                </span>
-              )}
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-/**
- * Overview worklist of buyers who opted (via the agent) into the WhatsApp
- * "offers" group and still need to be added manually. Renders one card per
- * person so an admin can read each one's interests/vertical at a glance and mark
- * them added. Loading shows skeletons; a real error (or 403 → empty list) hides
- * gracefully. The block carries a subtle brand highlight and a pending count so
- * it stands out on the overview.
+ * Overview preview of buyers who opted (via the agent) into the WhatsApp
+ * "offers" group and still need to be added manually. Pending-only and compact:
+ * the first few rows plus a "+N more" hint and a "See all" link into the
+ * dedicated group-invites page (where the status filter + full list live).
+ * Loading shows skeletons; a real error (or 403 → empty list) hides gracefully.
+ * The block carries a subtle brand highlight and a pending count so it stands
+ * out on the overview.
  */
 export function GroupInviteSection() {
   const { t } = useT()
-  const [status, setStatus] = useState<WorklistStatus>('pending')
-  const query = useGroupInviteRequests(status)
+  const query = useGroupInviteRequests('pending')
 
-  // First load (no cached slice yet): skeletons. On a filter switch the previous
-  // slice stays visible via `placeholderData`, so the control never flashes out.
   if (query.isLoading) {
     return (
       <div className="flex flex-col gap-3">
@@ -134,6 +39,8 @@ export function GroupInviteSection() {
   if (query.isError) return null
 
   const requests = query.data ?? []
+  const preview = requests.slice(0, PREVIEW_LIMIT)
+  const overflow = requests.length - preview.length
 
   return (
     <div
@@ -147,38 +54,36 @@ export function GroupInviteSection() {
           <UsersRound className="size-4" />
         </span>
         <Badge variant="secondary" className="tabular-nums">
-          {status === 'pending'
-            ? t('overview.groupInviteCount', { n: requests.length })
-            : t('overview.worklistCount', { n: requests.length })}
+          {t('overview.groupInviteCount', { n: requests.length })}
         </Badge>
-        <Tabs
-          value={status}
-          onValueChange={(v) => setStatus(v as WorklistStatus)}
-          className="ml-auto"
+        <Link
+          to="/dashboard/group-invites"
+          className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-brand hover:underline"
         >
-          <TabsList aria-label={t('overview.filterAria')}>
-            <TabsTrigger value="pending">
-              {t('overview.filterPending')}
-            </TabsTrigger>
-            <TabsTrigger value="handled">
-              {t('overview.filterHandled')}
-            </TabsTrigger>
-            <TabsTrigger value="all">{t('overview.filterAll')}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+          {t('overview.seeAll')}
+          <ArrowRight className="size-3.5" />
+        </Link>
       </div>
       {requests.length === 0 ? (
         <Card>
           <CardContent className="p-4 text-sm text-muted-foreground">
-            {status === 'pending'
-              ? t('overview.groupInviteEmpty')
-              : t('overview.worklistEmpty')}
+            {t('overview.groupInviteEmpty')}
           </CardContent>
         </Card>
       ) : (
-        requests.map((req) => (
-          <GroupInviteRow key={req.contact_id} req={req} />
-        ))
+        <>
+          {preview.map((req) => (
+            <GroupInviteRow key={req.contact_id} req={req} />
+          ))}
+          {overflow > 0 && (
+            <Link
+              to="/dashboard/group-invites"
+              className="px-1 text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              {t('overview.andMore', { n: overflow })}
+            </Link>
+          )}
+        </>
       )}
     </div>
   )

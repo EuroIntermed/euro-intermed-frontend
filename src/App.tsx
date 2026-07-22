@@ -77,6 +77,14 @@ const SuppliersPage = lazyWithReload(() =>
 const OffersPage = lazyWithReload(() =>
   import('@/pages/OffersPage').then((m) => ({ default: m.OffersPage })),
 )
+const GroupInvitesPage = lazyWithReload(() =>
+  import('@/pages/GroupInvitesPage').then((m) => ({
+    default: m.GroupInvitesPage,
+  })),
+)
+const NewsletterPage = lazyWithReload(() =>
+  import('@/pages/NewsletterPage').then((m) => ({ default: m.NewsletterPage })),
+)
 const OfferReviewPage = lazyWithReload(() =>
   import('@/pages/OfferReviewPage').then((m) => ({
     default: m.OfferReviewPage,
@@ -155,6 +163,11 @@ function AppRoutes() {
           />
           <Route path="/dashboard/handoffs" element={<HandoffsPage />} />
           <Route path="/dashboard/tasks" element={<TasksPage />} />
+          <Route
+            path="/dashboard/group-invites"
+            element={<GroupInvitesPage />}
+          />
+          <Route path="/dashboard/newsletter" element={<NewsletterPage />} />
           <Route
             path="/dashboard/kpi/today"
             element={<TodayAngrosistPage />}

@@ -10,12 +10,14 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
+  Mail,
   PackageOpen,
   PackageX,
   SlidersHorizontal,
   Sun,
   Truck,
   UserCog,
+  UsersRound,
   Workflow,
 } from 'lucide-react'
 import {
@@ -65,6 +67,8 @@ const SECTION_PREFIXES = [
   '/dashboard/companies',
   '/dashboard/handoffs',
   '/dashboard/tasks',
+  '/dashboard/group-invites',
+  '/dashboard/newsletter',
   '/dashboard/offers',
   '/dashboard/kpi',
   '/dashboard/suppliers',
@@ -88,6 +92,12 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard/companies', labelKey: 'nav.companies', icon: Building2 },
   { to: '/dashboard/handoffs', labelKey: 'nav.handoffs', icon: Inbox },
   { to: '/dashboard/tasks', labelKey: 'nav.tasks', icon: ListTodo },
+  {
+    to: '/dashboard/group-invites',
+    labelKey: 'nav.groupInvites',
+    icon: UsersRound,
+  },
+  { to: '/dashboard/newsletter', labelKey: 'nav.newsletter', icon: Mail },
   { to: '/dashboard/offers', labelKey: 'nav.offers', icon: PackageOpen },
 ]
 
