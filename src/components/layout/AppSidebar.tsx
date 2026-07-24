@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
-  Mail,
   PackageOpen,
   PackageX,
   SlidersHorizontal,
@@ -97,7 +96,6 @@ const NAV_ITEMS: NavItem[] = [
     labelKey: 'nav.groupInvites',
     icon: UsersRound,
   },
-  { to: '/dashboard/newsletter', labelKey: 'nav.newsletter', icon: Mail },
   { to: '/dashboard/offers', labelKey: 'nav.offers', icon: PackageOpen },
 ]
 

@@ -21,7 +21,6 @@ import { KpiFunnel } from '@/components/dashboard/KpiFunnel'
 import { KpiBreakdowns } from '@/components/dashboard/KpiBreakdowns'
 import { TriageSection } from '@/components/dashboard/TriageSection'
 import { GroupInviteSection } from '@/components/dashboard/GroupInviteSection'
-import { NewsletterSection } from '@/components/dashboard/NewsletterSection'
 import { SupplyDemandSection } from '@/components/dashboard/SupplyDemandSection'
 import { OverviewLegend } from '@/components/dashboard/OverviewLegend'
 import { useT } from '@/lib/i18n'
@@ -110,14 +109,6 @@ export function OverviewPage() {
             desc={t('overview.groupInviteDesc')}
           />
           <GroupInviteSection />
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <SectionHeader
-            title={t('overview.newsletterTitle')}
-            desc={t('overview.newsletterDesc')}
-          />
-          <NewsletterSection />
         </section>
 
         <section className="flex flex-col gap-3">
